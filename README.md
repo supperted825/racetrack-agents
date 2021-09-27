@@ -1,33 +1,35 @@
 ## ME5406 Project 2
 
 
-A project based on https://github.com/eleurent/highway-env.
+A reinforcement learning project based on https://github.com/eleurent/highway-env.
 
 <br/>
 
 ## How to Use  
 
-First install the highway_env package in your virtual environment.
+First install dependencies.
 
 ```
-pip install highway_env==1.4
+pip install -r requirements.txt
 ```
 
-Navigate to the installation directory of highway_env (~/site-packages/highway_env) and remove everything.
-
-Next, clone this repo.
+Then, clone the repository.
 
 ```
 git clone https://github.com/supperted825/ME5406P2.git
 ```
 
-Once done, move all the files as is out of the ME5406P2 folder, so that the folder root is ~/highway_env.
+To run experiments, run main.py while specifying options. See main.py for available options.
+
+```
+python main.py [--opts]
+```
 
 <br/>
 
-## How to Develop
+## Developing
 
-Following from the previous steps, create a branch with the name of the feature that you are working on in ~/highway_env.
+Create a branch with the name of the feature that you are working on in ~/highway_env.
 
 ```
 git co -b <branch name>
@@ -54,5 +56,3 @@ git push
 ```
 
 Now, if you head back to the repo online, you should see "Compare and Pull Request". Click on it and enter a short description of your changes. Then you can select a reviewer and submit the code for merging with a pull request.
-
-# ME5406P2
