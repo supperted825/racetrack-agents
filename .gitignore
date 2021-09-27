@@ -1,0 +1,8 @@
+video/
+models/
+logs/
+pbslogs/
+*.o*
+*.pbs
+*.DS_Store
+*__pycache__
