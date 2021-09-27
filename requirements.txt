@@ -1,2 +1,0 @@
-tensorflow==2.6.0
-highway_env==1.4
