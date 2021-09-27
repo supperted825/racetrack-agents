@@ -37,7 +37,8 @@ class RaceTrackEnv(AbstractEnv):
             "action": {
                 "type": "ContinuousAction",
                 "longitudinal": True,
-                "lateral": True
+                "lateral": True,
+                "dynamical": True
             },
 
             # Other Vehicle Information
@@ -68,14 +69,23 @@ class RaceTrackEnv(AbstractEnv):
 
 
     def _reward(self, action: np.ndarray) -> float:
+
+        # Rewards Shorter Distance to Lane Center
         _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
         lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
+
+        # Rewards Minimal Action
         action_reward = self.config["action_reward"]*np.linalg.norm(action)
+
+        # Combines Rewards & Punishes Collisions
         reward = lane_centering_reward \
             + action_reward \
             + self.config["collision_reward"] * self.vehicle.crashed
+
+        # Penalise Off-Road Driving
         reward = reward if self.vehicle.on_road else self.config["collision_reward"]
-        return utils.lmap(reward, [self.config["collision_reward"], 1], [0, 1])
+
+        return utils.lmap(reward, [self.config["collision_reward"], 0], [0, 1])
 
 
     def _is_terminal(self) -> bool:
@@ -209,9 +219,7 @@ class RaceTrackEnv(AbstractEnv):
             heading=road.network.get_lane(("a", "b", 0)).heading_at(0),
             speed=5)
         
-        ego_vehicle.SPEED_MIN = 0
-        ego_vehicle.SPEED_MAX = 10
-        ego_vehicle.SPEED_COUNT = 3
+        ego_vehicle.MAX_SPEED = 10
 
         road.vehicles.append(ego_vehicle)
         self.controlled_vehicles.append(ego_vehicle)
@@ -241,10 +249,3 @@ class RaceTrackEnv(AbstractEnv):
                     break
             else:
                 self.road.vehicles.append(vehicle)
-
-
-register(
-    id='racetrackenv-v0',
-    entry_point='highway_env.envs:RaceTrackEnv',
-    max_episode_steps=1000
-)

@@ -5,6 +5,7 @@ from gym.wrappers.monitoring import video_recorder
 import highway_env
 import argparse
 import base64
+import keras
 import datetime
 import numpy as np
 
@@ -41,6 +42,7 @@ class opts(object):
         self.parser.add_argument('--min_reward', default=10, help='Minimum Reward to Save Model')
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
         self.parser.add_argument('--exp_id', default='default')
+        self.parser.add_argument('--load_model', default=None, help='Load Model for Testing')
     
     def parse(self, args=''):
         if args == '':
@@ -130,28 +132,27 @@ if __name__ == "__main__":
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
-    # env = Monitor(env, './video', force=True, video_callable=lambda episode: True)
+    env = Monitor(env, './video', force=True, video_callable=lambda episode: True)
     # vid = video_recorder.VideoRecorder(env,path="/Users/jontan/Desktop/vid.mp4")
 
     if opt.mode == "train":
 
         if opt.agent == "DQN":
-            trainDQN(env, agent, opt.num_episodes, opt=opt)
+            trainDQN(env, agent, opt.num_episodes, opt)
         else:
-            trainContinuous(env, agent, opt.num_episodes, opt=opt)
+            trainContinuous(env, agent, opt.num_episodes, opt)
 
     else:
         
-        # If not Training, Load Weights & Log Reward
-        agent.model.load_weights("./models/")
-        rewards = []
-
+        # If not Training, Load Model
+        model = keras.models.load_model(opt.load_model)
+        
         if opt.agent == "DQN":
-
+            obs = env.reset()
             for _ in range(1000):
-                action_idx = agent.get_qs(obs)
+                action_idx = np.argmax(agent.get_qs(obs))
                 obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
-                env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
+                #env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
                 #vid.capture_frame()
             #vid.close()
 

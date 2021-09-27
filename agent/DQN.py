@@ -47,8 +47,7 @@ class ModifiedTensorBoard(TensorBoard):
     def on_epoch_end(self, epoch, logs=None):
         self.update_stats(**logs)
 
-    # Overrided
-    # We train for one batch only, no need to save anything at epoch end
+    # Overrided, we train for one batch only, no need to save anything at epoch end
     def on_batch_end(self, batch, logs=None):
         pass
 
