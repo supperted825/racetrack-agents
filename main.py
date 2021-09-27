@@ -126,7 +126,7 @@ if __name__ == "__main__":
     
     # Parse Arguments
     opt = opts().parse()
-    env = RaceTrackEnv
+    env = RaceTrackEnv()
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
