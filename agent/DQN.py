@@ -71,8 +71,8 @@ class ModifiedTensorBoard(TensorBoard):
                 self.writer.flush()
 
 
-class DQNAgent(object):
-    """Double DQN Agent"""
+class CDQNAgent(object):
+    """Clipped Double DQN Agent"""
 
     def __init__(self, name=MODEL_NAME, opt=None):
 
@@ -108,46 +108,103 @@ class DQNAgent(object):
         return model
 
 
-    def update_replay(self, transition):
-        self.replay_memory.append(transition)
+    def update_replay(self, item):
+        self.replay_memory.append(item)
 
 
-    def get_qs(self, state):
+    def get_qvalues(self, state):
         return self.model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
 
 
     def train(self, terminal_state):
+
+        # Don't Train Unless Sufficient Data
         if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
             return
         
+        # Sample Batch of Data for Updating Model
         minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
 
-        current_states = np.array([transition[0] for transition in minibatch])/255
-        current_qs_list = self.model.predict(current_states)
+        current_states = np.array([item[0] for item in minibatch])/255
+        current_qvalues = self.model.predict(current_states)
 
-        new_current_states = np.array([transition[3] for transition in minibatch])/255
-        future_qs_list = self.target_model.predict(new_current_states)
+        new_current_states = np.array([item[3] for item in minibatch])/255
+        new_current_qvalues = self.model.predict(new_current_states)
+        new_future_qvalues = self.target_model.predict(new_current_states)
 
-        X = []
-        y = []
+        x, y = [], []
 
-        for index, (current_state, action, reward, new_current_state, done) in enumerate(minibatch):
+        for index, (current_state, action, reward, _, done) in enumerate(minibatch):
+
+            # Q Value is Reward if Terminal, Otherwise Clipped Update Rule
             if not done:
-                max_future_q = np.max(future_qs_list[index])
-                new_q = reward + DISCOUNT * max_future_q
+                model_maxqvalue = np.max(new_current_qvalues[index])
+                target_model_maxqvalue = np.max(new_future_qvalues[index])
+                new_qvalue = reward + DISCOUNT * np.min(model_maxqvalue, target_model_maxqvalue)
             else:
-                new_q = reward
+                new_qvalue = reward
 
-            current_qs = current_qs_list[index]
-            current_qs[action] = new_q
+            # Update Target Q Value for this State
+            current_qvalue = current_qvalues[index]
+            current_qvalue[action] = new_qvalue
 
-            X.append(current_state)
-            y.append(current_qs)
+            x.append(current_state)
+            y.append(current_qvalue)
 
         self.model.fit(
-            np.array(X)/255, np.array(y),
+            np.array(x)/255, np.array(y),
             batch_size=MINIBATCH_SIZE, verbose=0,
-            steps_per_epoch=(len(X)//MINIBATCH_SIZE),
+            steps_per_epoch=(len(x)//MINIBATCH_SIZE),
+            shuffle=False, callbacks=[self.tensorboard]
+            if terminal_state else None)
+
+        if terminal_state:
+            self.target_update_counter += 1
+        
+        if self.target_update_counter > UPDATE_TARGET_FREQ:
+            self.target_model.set_weights(self.model.get_weights())
+            self.target_update_counter = 0
+
+
+class DQNAgent(CDQNAgent):
+    """Double DQN Agent Without Clipping"""
+
+    def train(self, terminal_state):
+
+        # Don't Train Unless Sufficient Data
+        if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
+            return
+        
+        # Sample Batch of Data for Updating Model
+        minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
+
+        current_states = np.array([item[0] for item in minibatch])/255
+        current_qvalues = self.model.predict(current_states)
+
+        new_current_states = np.array([item[3] for item in minibatch])/255
+        future_qvalues = self.target_model.predict(new_current_states)
+
+        x, y = [], []
+
+        for index, (current_state, action, reward, _, done) in enumerate(minibatch):
+
+            # Q Value is Reward if Terminal, otherwise we use G
+            if not done:
+                new_qvalue = reward + DISCOUNT * np.max(future_qvalues[index])
+            else:
+                new_qvalue = reward
+
+            # Update Target Q Value for this State
+            current_qvalue = current_qvalues[index]
+            current_qvalue[action] = new_qvalue
+
+            x.append(current_state)
+            y.append(current_qvalue)
+
+        self.model.fit(
+            np.array(x)/255, np.array(y),
+            batch_size=MINIBATCH_SIZE, verbose=0,
+            steps_per_epoch=(len(x)//MINIBATCH_SIZE),
             shuffle=False, callbacks=[self.tensorboard]
             if terminal_state else None)
 

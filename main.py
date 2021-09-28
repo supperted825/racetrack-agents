@@ -14,13 +14,14 @@ from pathlib import Path
 from pyvirtualdisplay import Display
 
 from racetrack_env import RaceTrackEnv
-from agent.DQN import DQNAgent
+from agent.DQN import CDQNAgent, DQNAgent
 
 
 EPSILON_DECAY = 0.99975
 MIN_EPSILON = 0.001
 
 GET_AGENT = {
+    "CDQN": CDQNAgent,
     "DQN" : DQNAgent
 }
 
@@ -34,15 +35,16 @@ DISCRETE_ACTION_SPACE = {
 class opts(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
+        self.parser.add_argument('--exp_id', default='default')
         self.parser.add_argument('--mode', default='train', help='Train or Test')
-        self.parser.add_argument('--agent', default='DQN', help='DQN, DDPG, PPO')
+        self.parser.add_argument('--agent', default='CDQN', help='DQN, DDPG, PPO')
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
+        self.parser.add_argument('--load_model', default=None, help='Load Model for Testing')
         self.parser.add_argument('--num_episodes', default=200, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
-        self.parser.add_argument('--min_reward', default=10, help='Minimum Reward to Save Model')
+        self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
-        self.parser.add_argument('--exp_id', default='default')
-        self.parser.add_argument('--load_model', default=None, help='Load Model for Testing')
+
     
     def parse(self, args=''):
         if args == '':
@@ -84,12 +86,12 @@ def trainDQN(env, agent, num_episodes, opt):
 
             # E-Soft Action Selection
             if np.random.random() > epsilon:
-                action_idx = np.argmax(agent.get_qs(obs))
+                action_idx = np.argmax(agent.get_qvalues(obs))
             else:
                 action_idx = np.random.randint(0, len(DISCRETE_ACTION_SPACE))
 
             # Step through Environment with Continuous Actions
-            new_obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
+            new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx])
             episode_reward += reward
 
             # Update Replay Memory & Train Agent Model
@@ -105,15 +107,15 @@ def trainDQN(env, agent, num_episodes, opt):
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
-            average_reward = sum(rewards[-opt.log_freq:])/len(rewards[-opt.log_freq:])
+            avg_reward = sum(rewards[-opt.log_freq:])/len(rewards[-opt.log_freq:])
             min_reward = min(rewards[-opt.log_freq:])
             max_reward = max(rewards[-opt.log_freq:])
-            agent.tensorboard.update_stats(reward_avg=average_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+            agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
             # Save Model if Min_Reward is Attained
             if min_reward >= opt.min_reward:
                 time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-                agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{average_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
+                agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
 
         # Decay Epsilon
         if epsilon > MIN_EPSILON:
@@ -150,7 +152,7 @@ if __name__ == "__main__":
         if opt.agent == "DQN":
             obs = env.reset()
             for _ in range(1000):
-                action_idx = np.argmax(agent.get_qs(obs))
+                action_idx = np.argmax(agent.get_qvalues(obs))
                 obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
                 #env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
                 #vid.capture_frame()
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         else:
 
             for _ in range(1000):
-                action = agent.get_qs(obs)
+                action = agent.get_qvalues(obs)
                 obs, reward, done, info = env.step(action)
                 env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
                 #vid.capture_frame()
