@@ -1,6 +1,7 @@
 import gym
 from gym.wrappers import Monitor
 from gym.wrappers.monitoring import video_recorder
+from racetrack_env import RaceTrackEnv
 
 import highway_env
 import argparse
@@ -13,16 +14,15 @@ from tqdm import tqdm
 from pathlib import Path
 from pyvirtualdisplay import Display
 
-from racetrack_env import RaceTrackEnv
-from agent.DQN import CDQNAgent, DQNAgent
+from agent.DQN import DQNAgent, CDQNAgent
 
 
 EPSILON_DECAY = 0.99975
 MIN_EPSILON = 0.001
 
 GET_AGENT = {
-    "CDQN": CDQNAgent,
-    "DQN" : DQNAgent
+    "DQN" : DQNAgent,
+    "CDQN": CDQNAgent
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -134,12 +134,12 @@ if __name__ == "__main__":
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
-    env = Monitor(env, './video', force=True, video_callable=lambda episode: True)
+    # env = Monitor(env, './video', force=True, video_callable=lambda episode: True)
     # vid = video_recorder.VideoRecorder(env,path="/Users/jontan/Desktop/vid.mp4")
 
     if opt.mode == "train":
 
-        if opt.agent == "DQN":
+        if opt.agent in ["DQN", "CDQN"]:
             trainDQN(env, agent, opt.num_episodes, opt)
         else:
             trainContinuous(env, agent, opt.num_episodes, opt)

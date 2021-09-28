@@ -2,7 +2,6 @@ from __future__ import division, print_function, absolute_import
 
 import numpy as np
 import numpy.random as random
-from gym.envs.registration import register
 
 from highway_env import utils
 from highway_env.envs.common.abstract import AbstractEnv
