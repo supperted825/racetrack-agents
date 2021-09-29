@@ -66,7 +66,6 @@ def trainDQN(env, agent, num_episodes, opt):
     rewards = []
     epsilon = opt.epsilon
 
-    # Run Episodes
     for episode in tqdm(range(1, num_episodes + 1)):
         agent.tensorboard.step = episode
 
@@ -101,9 +100,9 @@ def trainDQN(env, agent, num_episodes, opt):
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
-            avg_reward = sum(rewards[-opt.log_freq:])/len(rewards[-opt.log_freq:])
-            min_reward = min(rewards[-opt.log_freq:])
-            max_reward = max(rewards[-opt.log_freq:])
+            avg_reward = np.mean(rewards[-opt.log_freq:])
+            min_reward = np.min(rewards[-opt.log_freq:])
+            max_reward = np.max(rewards[-opt.log_freq:])
             agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
