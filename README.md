@@ -25,19 +25,20 @@ A reinforcement learning task for simultaneous lane-following and obstacle avoid
 
 ## Installation  
 
-First create the conda environment with the required dependencies.
-
-```
-conda create --name <env> --file requirements.txt
-```
-
-Then, clone the repository.
+First clone the repository 
 
 ```
 git clone https://github.com/supperted825/ME5406P2.git
 ```
 
-To run experiments, run main.py while specifying options. See main.py for available options.
+Then, create the conda environment with the required dependencies.
+
+```
+conda create --name <env> --file requirements.txt
+conda activate <env>
+```
+
+To run experiments, run main.py while specifying options. See main file for available options.
 
 ```
 python main.py [--opts]
