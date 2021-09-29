@@ -1,11 +1,29 @@
-## ME5406 Project 2
+# ME5406 Project 2
 
 
-A reinforcement learning project based on https://github.com/eleurent/highway-env.
+A reinforcement learning task for simultaneous lane-following and obstacle avoidance while handling interactions with other vehicles. The [highway_env API](https://github.com/eleurent/highway-env) is used for simulation.
 
 <br/>
 
-## How to Use  
+## Files
+
+* [main.py](main.py) - Main python file for running training & testing sequences. Can be run with various options.
+
+* [racetrack_env.py](racetrack_env.py) - Looped Race Track Environment for the RL problem.
+
+* [agent/models.py](/agent/models.py) - Contains NN architectures that can be imported for various agents.
+
+* [agent/DQN.py](/agent/DQN.py) - DQN Agent & its Variants
+
+* [requirements.txt](requirements.txt) - Conda environment for running the project.
+
+&nbsp;
+
+<i><b>NOTE:</b> A [similar version of racetrack_env.py](https://github.com/eleurent/highway-env/blob/master/highway_env/envs/racetrack_env.py) can be found in the original highway_env repo, and was contributed by us through https://github.com/eleurent/highway-env/issues/231.</i>
+
+<br/>
+
+## Installation  
 
 First install dependencies.
 
