@@ -25,10 +25,10 @@ A reinforcement learning task for simultaneous lane-following and obstacle avoid
 
 ## Installation  
 
-First install dependencies.
+First create the conda environment with the required dependencies.
 
 ```
-pip install -r requirements.txt
+conda create --name <env> --file requirements.txt
 ```
 
 Then, clone the repository.
