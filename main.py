@@ -39,7 +39,8 @@ class opts(object):
         self.parser.add_argument('--mode', default='train', help='Train or Test')
         self.parser.add_argument('--agent', default='CDQN', help='DQN, DDPG, PPO')
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
-        self.parser.add_argument('--load_model', default=None, help='Load Model for Testing')
+        self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
+        self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
         self.parser.add_argument('--num_episodes', default=200, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
@@ -103,7 +104,7 @@ def trainDQN(env, agent, num_episodes, opt):
 
         # Logging
         rewards.append(episode_reward)
-        print(episode_reward)
+        best = 0
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
@@ -112,8 +113,9 @@ def trainDQN(env, agent, num_episodes, opt):
             max_reward = max(rewards[-opt.log_freq:])
             agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
-            # Save Model if Min_Reward is Attained
-            if min_reward >= opt.min_reward:
+            # Save Model if Average Reward is Greater than a Minimum & Better than Before
+            if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
+                best = avg_reward
                 time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
                 agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
 
