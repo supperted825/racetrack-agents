@@ -35,12 +35,16 @@ DISCRETE_ACTION_SPACE = {
 class opts(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
-        self.parser.add_argument('--exp_id', default='default')
+        
+        # Configuration Settings
         self.parser.add_argument('--mode', default='train', help='Train or Test')
         self.parser.add_argument('--agent', default='CDQN', help='DQN, DDPG, PPO')
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
+        self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
+
+        # Experiment Settings
         self.parser.add_argument('--num_episodes', default=200, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
@@ -53,18 +57,6 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
         return opt
-
-
-def show_video():
-    html = []
-    for mp4 in Path("video").glob("*.mp4"):
-        print("video")
-        video_b64 = base64.b64encode(mp4.read_bytes())
-        html.append('''<video alt="{}" autoplay 
-                      loop controls style="height: 400px    ;">
-                      <source src="data:video/mp4;base64,{}" type="video/mp4" />
-                 </video>'''.format(mp4, video_b64.decode('ascii')))
-    Display.display(Display.HTML(data="<br>".join(html)))
     
 
 def trainDQN(env, agent, num_episodes, opt):
@@ -129,6 +121,7 @@ def trainDQN(env, agent, num_episodes, opt):
 def trainContinuous(env, agent, num_episodes, opt=None):
     pass
 
+
 if __name__ == "__main__":
     
     # Parse Arguments
@@ -137,8 +130,8 @@ if __name__ == "__main__":
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
-    # env = Monitor(env, './video', force=True, video_callable=lambda episode: True)
-    # vid = video_recorder.VideoRecorder(env,path="/Users/jontan/Desktop/vid.mp4")
+    if opt.save_video:
+        env = Monitor(env, './videos/', force=True)
 
     if opt.mode == "train":
 
@@ -151,23 +144,18 @@ if __name__ == "__main__":
         
         # If not Training, Load Model
         model = keras.models.load_model(opt.load_model)
+        total_reward = 0
         
-        if opt.agent == "DQN":
+        if opt.agent in ["DQN", "CDQN"]:
             obs = env.reset()
-            for _ in range(1000):
-                action_idx = np.argmax(agent.get_qvalues(obs))
+            for _ in range(200):
+                action_idx = np.argmax(model.predict(np.array([obs])/255)[0])
                 obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
-                #env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
-                #vid.capture_frame()
-            #vid.close()
+                total_reward += reward
+            print(total_reward)
 
         else:
 
             for _ in range(1000):
                 action = agent.get_qvalues(obs)
                 obs, reward, done, info = env.step(action)
-                env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame
-                #vid.capture_frame()
-            #vid.close()
-        
-        show_video()
