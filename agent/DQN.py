@@ -15,8 +15,8 @@ from .models import get_model
 REPLAY_MEMORY_SIZE = 10000
 MIN_REPLAY_MEMORY_SIZE = 500
 MODEL_NAME = "DQN_DoubleConv256"
-MINIBATCH_SIZE = 16
-UPDATE_TARGET_FREQ = 5
+MINIBATCH_SIZE = 64
+UPDATE_TARGET_FREQ = 50
 DISCOUNT = 0.99
 
 
@@ -74,10 +74,10 @@ class ModifiedTensorBoard(TensorBoard):
 class DQNAgent(object):
     """Double DQN Agent"""
 
-    def __init__(self, name=MODEL_NAME, opt=None):
+    def __init__(self, opt=None):
 
         # Configs
-        self.name = name
+        self.name = "{}_{}".format(opt.agent, opt.arch)
 
         # Main Model to be Trained
         self.model = self.create_model(opt.arch)
