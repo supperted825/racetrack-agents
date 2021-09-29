@@ -1,18 +1,11 @@
-import gym
+from tqdm import tqdm
 from gym.wrappers import Monitor
-from gym.wrappers.monitoring import video_recorder
 from racetrack_env import RaceTrackEnv
 
-import highway_env
 import argparse
-import base64
 import keras
 import datetime
 import numpy as np
-
-from tqdm import tqdm
-from pathlib import Path
-from pyvirtualdisplay import Display
 
 from agent.DQN import DQNAgent, CDQNAgent
 
@@ -93,7 +86,7 @@ def trainDQN(env, agent, num_episodes, opt):
             obs = new_obs
             step += 1
 
-        # Logging
+        # Log Episode Rewards
         rewards.append(episode_reward)
         print(episode_reward)
         best = 0
@@ -141,12 +134,10 @@ if __name__ == "__main__":
 
     else:
         
-        # If not Training, Load Model
         model = keras.models.load_model(opt.load_model)
-        total_reward = 0
+        total_reward, obs = 0, env.reset()
         
         if opt.agent in ["DQN", "CDQN"]:
-            obs = env.reset()
             for _ in range(200):
                 action_idx = np.argmax(model.predict(np.array([obs])/255)[0])
                 obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
@@ -154,7 +145,8 @@ if __name__ == "__main__":
             print(total_reward)
 
         else:
-
-            for _ in range(1000):
+            for _ in range(200):
                 action = agent.get_qvalues(obs)
                 obs, reward, done, info = env.step(action)
+                total_reward += reward
+            print(total_reward)
