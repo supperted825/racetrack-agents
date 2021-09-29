@@ -187,7 +187,6 @@ class CDQNAgent(DQNAgent):
             if not done:
                 model_maxq = np.max(new_current_qvalues[index])
                 target_model_maxq = np.max(new_future_qvalues[index])
-                print(model_maxq, target_model_maxq)
                 new_qvalue = reward + DISCOUNT * np.min([model_maxq, target_model_maxq])
             else:
                 new_qvalue = reward

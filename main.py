@@ -104,6 +104,7 @@ def trainDQN(env, agent, num_episodes, opt):
 
         # Logging
         rewards.append(episode_reward)
+        print(episode_reward)
         best = 0
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
