@@ -14,13 +14,17 @@ from .models import get_model, ModifiedTensorBoard
 
 # Constants for Prediction
 ADV_PLACEHOLDER = np.zeros((1, 1))
-ADV_PREDICTION = np.zeros((1, 2))
+ACT_PLACEHOLDER = np.zeros((1, 2))
 
 # PPO Parameters
 GAE_LAMBDA = 0.95
 PPO_EPSILON = 0.2
 ENTROPY_LOSS_RATIO = 0.001
+
+# Memory Replay Parameters
 MINIBATCH_SIZE = 64
+REPLAY_MEMORY_SIZE = 10000
+MIN_REPLAY_MEMORY_SIZE = 500
 
 
 """PPO Pseudocode"""
@@ -47,7 +51,7 @@ class PPOAgent():
             self.old_actor = self.create_actor(opt.arch)
             self.old_actor.set_weights(self.actor.get_weights())
 
-            self.replay_memory = []
+            self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
 
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
             self.tensorboard = ModifiedTensorBoard(self.name, log_dir=f"logs/{self.name}-{time}")
@@ -119,12 +123,12 @@ class PPOAgent():
             new_log_pdf = pred2logpdf(y_true, y_pred)
             r = np.exp(new_log_pdf - old_log_pdf)
 
-            # Calculate Clipped Actor Loss
+            # Clipped Actor Loss
             loss1 = r * adv
             loss2 = np.clip(r, 1 - PPO_EPSILON, 1 + PPO_EPSILON) * r
             actor_loss = - np.mean(np.min(loss1, loss2))
 
-            # Entropy Bonus for Exploration-Exploitation
+            # Entropy Bonus
             sigma = np.array([x[1] for x in y_pred])
             variance = np.square(sigma)
             entropy_loss = ENTROPY_LOSS_RATIO * \
@@ -134,9 +138,23 @@ class PPOAgent():
         
         return loss
 
+    def update_replay(self, item):
+        self.replay_memory.append(item)
+    
+    def act(self, obs, optimal=False):
+        model_output = self.actor.predict([[obs],ADV_PLACEHOLDER, ACT_PLACEHOLDER])
+        mus  = model_output[0][0]
+        sigs = model_output[0][1]
+        if optimal:
+            action = [mu for mu in mus]
+        else:
+            action = [random.gauss(mu,sig) for mu, sig in zip(mus,sigs)]
+        return action
+
     def compute_GAE(self):
         pass
 
     def train(self, terminal_state):
+        obs, actions, adv, returns, values = random.sample(self.replay_memory, MINIBATCH_SIZE)
         pass
 
