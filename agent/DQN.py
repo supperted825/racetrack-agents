@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from keras.layers import Dense
-from keras.callbacks import TensorBoard
+from keras.layers import Dense, Flatten
 
 from collections import deque
 import random
@@ -9,7 +8,7 @@ import numpy as np
 import datetime
 import os
 
-from .models import get_model
+from .models import get_model, ModifiedTensorBoard
 
 
 REPLAY_MEMORY_SIZE = 10000
@@ -18,57 +17,6 @@ MODEL_NAME = "DQN_DoubleConv256"
 MINIBATCH_SIZE = 64
 UPDATE_TARGET_FREQ = 50
 DISCOUNT = 0.99
-
-
-class ModifiedTensorBoard(TensorBoard):
-    """Custom Tensorboard, modified from PythonProgramming.net by Mohammed AL-Ma'amari."""
-    
-    # Overriding init to set initial step and writer (we want one log file for all .fit() calls)
-    def __init__(self, name, **kwargs):
-        super().__init__(**kwargs)
-        self.step = 1
-        self.writer = tf.summary.create_file_writer(self.log_dir)
-        self._log_write_dir = os.path.join(self.log_dir, name)
-
-    # Overriding this method to stop creating default log writer
-    def set_model(self, model):
-        self.model = model
-        
-        self._train_dir = os.path.join(self._log_write_dir, 'train')
-        self._train_step = self.model._train_counter
-
-        self._val_dir = os.path.join(self._log_write_dir, 'validation')
-        self._val_step = self.model._test_counter
-
-        self._should_write_train_graph = False
-
-    # Overrided, saves logs with our step number
-    # (otherwise every .fit() will start writing from 0th step)
-    def on_epoch_end(self, epoch, logs=None):
-        self.update_stats(**logs)
-
-    # Overrided, we train for one batch only, no need to save anything at epoch end
-    def on_batch_end(self, batch, logs=None):
-        pass
-
-    # Overrided, so won't close writer
-    def on_train_end(self, _):
-        pass
-
-    def on_train_batch_end(self, batch, logs=None):
-        pass
-
-    # Custom method for saving own metrics
-    # Creates writer, writes custom metrics and closes writer
-    def update_stats(self, **stats):
-        self._write_logs(stats, self.step)
-
-    def _write_logs(self, logs, index):
-        with self.writer.as_default():
-            for name, value in logs.items():
-                tf.summary.scalar(name, value, step=index)
-                self.step += 1
-                self.writer.flush()
 
 
 class DQNAgent(object):
@@ -98,7 +46,8 @@ class DQNAgent(object):
         # Retrieve Model Backbone from Model File
         model = get_model(arch)
 
-        # Add Final Output Layer for DQN Agent & Compile with Loss
+        # Add Final Output Layers for DQN Agent & Compile with Loss
+        model.add(Dense(64))
         model.add(Dense(9, activation="linear"))
         model.compile(loss="mse", optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 

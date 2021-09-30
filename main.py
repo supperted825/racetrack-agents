@@ -8,14 +8,15 @@ import datetime
 import numpy as np
 
 from agent.DQN import DQNAgent, CDQNAgent
+from agent.PPO import PPOAgent
 
-
-EPSILON_DECAY = 0.99975
-MIN_EPSILON = 0.001
+EPSILON_DECAY = 0.8
+MIN_EPSILON = 0.05
 
 GET_AGENT = {
     "DQN" : DQNAgent,
-    "CDQN": CDQNAgent
+    "CDQN": CDQNAgent,
+    "PPO" : PPOAgent
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -31,7 +32,7 @@ class opts(object):
         
         # Configuration Settings
         self.parser.add_argument('--mode', default='train', help='Train or Test')
-        self.parser.add_argument('--agent', default='CDQN', help='DQN, DDPG, PPO')
+        self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
@@ -109,6 +110,12 @@ def trainDQN(env, agent, num_episodes, opt):
             epsilon *= EPSILON_DECAY
             epsilon = max(MIN_EPSILON, epsilon)
 
+        """
+        # Linear Epsilon Decay
+        if epsilon > MIN_EPSILON:
+            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - MIN_EPSILON)
+        """
+
 
 def trainContinuous(env, agent, num_episodes, opt=None):
     pass
@@ -119,6 +126,7 @@ if __name__ == "__main__":
     # Parse Arguments
     opt = opts().parse()
     env = RaceTrackEnv()
+    print(env.observation_space)
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
