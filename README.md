@@ -15,6 +15,8 @@ A reinforcement learning task for simultaneous lane-following and obstacle avoid
 
 * [agent/DQN.py](/agent/DQN.py) - DQN Agent & its Variants
 
+* [agent/PPO.py](/agent/PPO.py) - PPO Agent with Clipped Surrogate & GAE
+
 * [requirements.txt](requirements.txt) - Conda environment for running the project.
 
 &nbsp;
