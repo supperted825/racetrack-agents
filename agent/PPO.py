@@ -206,8 +206,8 @@ class PPOAgent():
                         np.repeat(ACT_PLACEHOLDER, MINIBATCH_SIZE, axis=0)])
 
         # Train Actor & Critic
-        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=1, verbose=0)
-        self.critic.fit(x=obss, y=rets, epochs=1, verbose=0)
+        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=1, verbose=0, callbacks=[self.tensorboard])
+        self.critic.fit(x=obss, y=rets, epochs=1, verbose=0, callbacks=[self.tensorboard])
 
         # Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
