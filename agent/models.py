@@ -1,9 +1,9 @@
 import os
 import tensorflow as tf
 
-from keras.callbacks import TensorBoard
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten, Permute
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten, Permute
 
 
 # Various Neural Network Architectures are Defined Here

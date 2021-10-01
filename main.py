@@ -117,7 +117,64 @@ def trainDQN(env, agent, num_episodes, opt):
         """
 
 
-def trainContinuous(env, agent, num_episodes, opt=None):
+def trainPPO(env, agent, num_episodes, opt=None):
+
+    """Training Sequence for PPO, DDPG"""
+
+    rewards = []
+    epsilon = opt.epsilon
+
+    for episode in tqdm(range(1, num_episodes + 1)):
+        agent.tensorboard.step = episode
+
+        episode_reward = 0
+        step = 1
+        obs = env.reset()
+        done = False
+
+        while not done:
+
+            # Get Action & Step Environment
+            action = agent.act(obs)
+            obs, reward, done, _ = env.step(action)
+            episode_reward += reward
+
+            # Update Replay Memory
+            agent.update_replay(obs, action, reward, done)
+        
+        # Train Agent & Clear Replay Memory
+        agent.train()
+        agent.replay_memory.clear()
+        
+        # Log Episode Rewards
+        rewards.append(episode_reward)
+        print(episode_reward)
+        best = 0
+        
+        # For Logging Interval, Extract Average, Lowest, Best Reward Attained
+        if episode % opt.log_freq == 0 or episode == 1:
+            avg_reward = np.mean(rewards[-opt.log_freq:])
+            min_reward = np.min(rewards[-opt.log_freq:])
+            max_reward = np.max(rewards[-opt.log_freq:])
+            agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+
+            # Save Model if Average Reward is Greater than a Minimum & Better than Before
+            if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
+                best = avg_reward
+                time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
+                agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
+
+        # Decay Epsilon
+        if epsilon > MIN_EPSILON:
+            epsilon *= EPSILON_DECAY
+            epsilon = max(MIN_EPSILON, epsilon)
+
+        """
+        # Linear Epsilon Decay
+        if epsilon > MIN_EPSILON:
+            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - MIN_EPSILON)
+        """
+
     pass
 
 
@@ -126,7 +183,6 @@ if __name__ == "__main__":
     # Parse Arguments
     opt = opts().parse()
     env = RaceTrackEnv()
-    print(env.observation_space)
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
@@ -138,7 +194,7 @@ if __name__ == "__main__":
         if opt.agent in ["DQN", "CDQN"]:
             trainDQN(env, agent, opt.num_episodes, opt)
         else:
-            trainContinuous(env, agent, opt.num_episodes, opt)
+            trainPPO(env, agent, opt.num_episodes, opt)
 
     else:
         

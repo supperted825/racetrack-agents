@@ -1,12 +1,10 @@
-import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from keras.layers import Dense, Flatten
+from keras.layers import Dense
 
 from collections import deque
 import random
 import numpy as np
 import datetime
-import os
 
 from .models import get_model, ModifiedTensorBoard
 
@@ -149,7 +147,6 @@ class CDQNAgent(DQNAgent):
         self.model.fit(
             np.array(x)/255, np.array(y),
             batch_size=MINIBATCH_SIZE, verbose=0,
-            steps_per_epoch=(len(x)//MINIBATCH_SIZE),
             shuffle=False, callbacks=[self.tensorboard]
             if terminal_state else None)
 
