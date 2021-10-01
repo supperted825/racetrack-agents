@@ -192,9 +192,9 @@ if __name__ == "__main__":
     if opt.mode == "train":
 
         if opt.agent in ["DQN", "CDQN"]:
-            trainDQN(env, agent, opt.num_episodes, opt)
+            trainDQN(env, agent, int(opt.num_episodes), opt)
         else:
-            trainPPO(env, agent, opt.num_episodes, opt)
+            trainPPO(env, agent, int(opt.num_episodes), opt)
 
     else:
         
