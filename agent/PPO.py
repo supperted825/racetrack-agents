@@ -34,7 +34,7 @@ MINIBATCH_SIZE = 64
 # Initial policy parameters and initial function value parameters
 #     for episode, do:
 #         collect trajectories by running policy in environment
-#         compute rewards-to-go
+#         compute returns
 #         compute advantage estimates based on current value function
 #         update policy by maximizing PPO clip objective via Adam
 #         fit value function by regression with mse error via Adam
@@ -141,13 +141,14 @@ class PPOAgent():
 
 
     def update_replay(self, obs, action, reward, done):
+        """Record Stepwise Episode Information with Critic Output"""
         value = self.critic.predict(obs.reshape(1,*obs.shape))[0]
         mask = 0 if done else 1
         self.replay_memory.append((obs, action, reward, mask, value))
     
 
     def process_episode(self, replay_memory, g=GAE_GAMMA, l=GAE_LAMBDA):
-        """Process Espisode Information for Advantages & Returns"""
+        """Process Espisode Information for Advantages & Returns, see https://arxiv.org/pdf/1506.02438.pdf"""
 
         # If Last Entry is Terminal State, Use Reward else V(s)
         if replay_memory[-1][3] == 1:

@@ -175,8 +175,6 @@ def trainPPO(env, agent, num_episodes, opt=None):
             epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - MIN_EPSILON)
         """
 
-    pass
-
 
 if __name__ == "__main__":
     
