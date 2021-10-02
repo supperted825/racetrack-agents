@@ -46,6 +46,7 @@ class PPOAgent():
 
             # Configs
             self.name = "{}_{}".format(opt.agent, opt.arch)
+            self.lr = opt.lr if opt.lr else 5e-4
 
             # Main Model to be Trained
             self.actor = self.create_actor(opt.arch)
@@ -71,20 +72,21 @@ class PPOAgent():
         cnn = get_model(backbone)
         feats = cnn(obs)
 
-        # Add Final Layers for PPO Actor & Compile with Loss
+        # Add Final Layers for PPO Actor
         fc1 = Dense(64, activation='relu')(feats)
         fc2 = Dense(64, activation='relu')(fc1)
 
         # Model Outputs Mean Value for Each Continuous Action
-        out  = Dense(2, activation='tanh')(fc2)
+        out = Dense(2, activation='tanh')(fc2)
 
+        # Compile Model with Custom PPO Loss
         model = Model(inputs=[obs, adv, act], outputs=out)
         model.compile(
                     loss=self.PPO_loss(adv,act),
-                    optimizer=Adam(learning_rate=0.001),
-                    metrics=['accuracy'])
+                    optimizer=Adam(learning_rate=self.lr),
+                    metrics=['accuracy'],
+                    )
 
-        # Visualise Model in Console
         model.summary()
 
         return model
@@ -99,9 +101,9 @@ class PPOAgent():
         model.add(Dense(64))
         model.add(Dense(64))
         model.add(Dense(1))
-        model.compile(loss="mse", optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 
-        # Visualise Model in Console
+        # Critic Simply Uses MSE Loss
+        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr), metrics=['accuracy'])
         model.summary()
 
         return model

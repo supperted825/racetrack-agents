@@ -3,9 +3,9 @@ from gym.wrappers import Monitor
 from racetrack_env import RaceTrackEnv
 
 import argparse
-import keras
 import datetime
 import numpy as np
+import tensorflow.keras as keras
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
@@ -43,6 +43,7 @@ class opts(object):
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
+        self.parser.add_argument('--lr', default=None, help='Policy Learning Rate')
 
     
     def parse(self, args=''):

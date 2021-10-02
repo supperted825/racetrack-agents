@@ -51,13 +51,7 @@ class ModifiedTensorBoard(TensorBoard):
     # Override to stop creating default log writer
     def set_model(self, model):
         self.model = model
-        
         self._train_dir = os.path.join(self._log_write_dir, 'train')
-        self._train_step = self.model._train_counter
-
-        self._val_dir = os.path.join(self._log_write_dir, 'validation')
-        self._val_step = self.model._test_counter
-
         self._should_write_train_graph = False
 
     # Override to save logs with current step number
