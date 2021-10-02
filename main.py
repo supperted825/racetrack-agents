@@ -42,8 +42,11 @@ class opts(object):
         self.parser.add_argument('--num_episodes', default=200, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
+
+        # Hyperparameters
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
         self.parser.add_argument('--lr', default=None, help='Policy Learning Rate')
+        self.parser.add_argument('--num_epochs', default=10, help='Num Epochs for Policy Gradient')
 
     
     def parse(self, args=''):

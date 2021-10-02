@@ -47,6 +47,7 @@ class PPOAgent():
             # Configs
             self.name = "{}_{}".format(opt.agent, opt.arch)
             self.lr = opt.lr if opt.lr else 5e-4
+            self.epochs = opt.num_epochs if opt.num_epochs else 10
 
             # Main Model to be Trained
             self.actor = self.create_actor(opt.arch)
@@ -209,8 +210,8 @@ class PPOAgent():
                         np.repeat(ACT_PLACEHOLDER, MINIBATCH_SIZE, axis=0)])
 
         # Train Actor & Critic
-        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=1, verbose=0, callbacks=[self.tensorboard])
-        self.critic.fit(x=obss, y=rets, epochs=1, verbose=0, callbacks=[self.tensorboard])
+        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0, callbacks=[self.tensorboard])
+        self.critic.fit(x=obss, y=rets, epochs=self.epochs, verbose=0, callbacks=[self.tensorboard])
 
         # Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
