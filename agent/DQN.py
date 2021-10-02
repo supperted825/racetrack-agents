@@ -24,6 +24,7 @@ class DQNAgent(object):
 
         # Configs
         self.name = "{}_{}".format(opt.agent, opt.arch)
+        self.lr = opt.lr if opt.lr else 5e-4
 
         # Main Model to be Trained
         self.model = self.create_model(opt.arch)
@@ -47,7 +48,7 @@ class DQNAgent(object):
         # Add Final Output Layers for DQN Agent & Compile with Loss
         model.add(Dense(64))
         model.add(Dense(9, activation="linear"))
-        model.compile(loss="mse", optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr), metrics=['accuracy'])
 
         # Visualise Model in Console
         model.summary()
