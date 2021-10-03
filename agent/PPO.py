@@ -66,7 +66,7 @@ class PPOAgent():
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
-                write.writerow(['Step','Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+                write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
 
     def create_actor(self, backbone):
