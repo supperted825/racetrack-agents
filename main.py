@@ -46,7 +46,7 @@ class opts(object):
         # Hyperparameters
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
         self.parser.add_argument('--lr', default=None, help='Policy Learning Rate')
-        self.parser.add_argument('--num_epochs', default=1, help='Num Epochs for Policy Gradient')
+        self.parser.add_argument('--num_epochs', default=10, help='Num Epochs for Policy Gradient')
 
     
     def parse(self, args=''):
@@ -155,24 +155,13 @@ def trainPPO(env, agent, num_episodes, opt=None):
             avg_reward = np.mean(rewards[-opt.log_freq:])
             min_reward = np.min(rewards[-opt.log_freq:])
             max_reward = np.max(rewards[-opt.log_freq:])
-            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward)
 
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
                 best = avg_reward
                 time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
                 agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
-
-        # Decay Epsilon
-        if epsilon > MIN_EPSILON:
-            epsilon *= EPSILON_DECAY
-            epsilon = max(MIN_EPSILON, epsilon)
-
-        """
-        # Linear Epsilon Decay
-        if epsilon > MIN_EPSILON:
-            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - MIN_EPSILON)
-        """
 
 
 if __name__ == "__main__":
