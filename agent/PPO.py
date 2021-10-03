@@ -5,6 +5,7 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 import tensorflow.keras as K
 import tensorflow.keras.backend as F
+from tensorflow.python.framework.ops import disable_eager_execution
 
 import os
 import csv
@@ -14,8 +15,6 @@ import datetime
 
 from .models import get_model
 
-# Disable Eager Execution
-from tensorflow.python.framework.ops import disable_eager_execution
 
 # Constants for Prediction
 ADV_PLACEHOLDER = np.zeros((1, 1))
@@ -67,7 +66,7 @@ class PPOAgent():
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
-                write.writerow(['Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+                write.writerow(['Step','Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
 
     def create_actor(self, backbone):
