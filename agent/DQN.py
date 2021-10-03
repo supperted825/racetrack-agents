@@ -47,7 +47,7 @@ class DQNAgent(object):
 
         # with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
         #     write = csv.writer(file)
-        #     write.writerow(['Step','Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+        #     write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
 
     def write_log(self, step, **logs):
