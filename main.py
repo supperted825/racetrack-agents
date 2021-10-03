@@ -39,14 +39,14 @@ class opts(object):
         self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
 
         # Experiment Settings
-        self.parser.add_argument('--num_episodes', default=200, help='Number of Episodes to Train')
+        self.parser.add_argument('--num_episodes', default=100, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
 
         # Hyperparameters
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
         self.parser.add_argument('--lr', default=None, help='Policy Learning Rate')
-        self.parser.add_argument('--num_epochs', default=10, help='Num Epochs for Policy Gradient')
+        self.parser.add_argument('--num_epochs', default=1, help='Num Epochs for Policy Gradient')
 
     
     def parse(self, args=''):
@@ -55,7 +55,7 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
         return opt
-    
+
 
 def trainDQN(env, agent, num_episodes, opt):
 
@@ -65,10 +65,8 @@ def trainDQN(env, agent, num_episodes, opt):
     epsilon = opt.epsilon
 
     for episode in tqdm(range(1, num_episodes + 1)):
-        agent.tensorboard.step = episode
 
         episode_reward = 0
-        step = 1
         obs = env.reset()
         done = False
 
@@ -89,7 +87,6 @@ def trainDQN(env, agent, num_episodes, opt):
             agent.train(done)
 
             obs = new_obs
-            step += 1
 
         # Log Episode Rewards
         rewards.append(episode_reward)
@@ -101,7 +98,7 @@ def trainDQN(env, agent, num_episodes, opt):
             avg_reward = np.mean(rewards[-opt.log_freq:])
             min_reward = np.min(rewards[-opt.log_freq:])
             max_reward = np.max(rewards[-opt.log_freq:])
-            agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
@@ -129,10 +126,8 @@ def trainPPO(env, agent, num_episodes, opt=None):
     epsilon = opt.epsilon
 
     for episode in tqdm(range(1, num_episodes + 1)):
-        agent.tensorboard.step = episode
 
         episode_reward = 0
-        step = 1
         obs = env.reset()
         done = False
 
@@ -160,7 +155,7 @@ def trainPPO(env, agent, num_episodes, opt=None):
             avg_reward = np.mean(rewards[-opt.log_freq:])
             min_reward = np.min(rewards[-opt.log_freq:])
             max_reward = np.max(rewards[-opt.log_freq:])
-            agent.tensorboard.update_stats(reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
@@ -181,6 +176,15 @@ def trainPPO(env, agent, num_episodes, opt=None):
 
 
 if __name__ == "__main__":
+
+    import tensorflow as tf
+
+    writer = tf.summary.create_file_writer("/tmp/mylogs")
+    with writer.as_default():
+        for step in range(100):
+            # other model code would go here
+            tf.summary.scalar("my_metric", 0.5, step=step)
+            writer.flush()
     
     # Parse Arguments
     opt = opts().parse()

@@ -1,12 +1,13 @@
+import tensorflow as tf
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
-from keras.layers import Dense
 
 from collections import deque
 import random
 import numpy as np
 import datetime
 
-from .models import get_model, ModifiedTensorBoard
+from .models import get_model
 
 
 REPLAY_MEMORY_SIZE = 10000
@@ -37,7 +38,14 @@ class DQNAgent(object):
         self.target_update_counter = 0
 
         time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-        self.tensorboard = ModifiedTensorBoard(self.name, log_dir=f"logs/{self.name}-{time}")
+        self.writer = tf.summary.create_file_writer(logdir=f"logs/{self.name}-{time}")
+
+
+    def write_log(self, step, **logs):
+        with self.writer.as_default():
+            for name, value in logs.items():
+                tf.summary.scalar(name, value, step=step)
+                self.writer.flush()    
 
 
     def create_model(self, arch):
@@ -48,7 +56,7 @@ class DQNAgent(object):
         # Add Final Output Layers for DQN Agent & Compile with Loss
         model.add(Dense(64))
         model.add(Dense(9, activation="linear"))
-        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr), metrics=['accuracy'])
+        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
 
         # Visualise Model in Console
         model.summary()
@@ -99,7 +107,6 @@ class DQNAgent(object):
         self.model.fit(
             np.array(x)/255, np.array(y),
             batch_size=MINIBATCH_SIZE, verbose=0,
-            steps_per_epoch=(len(x)//MINIBATCH_SIZE),
             shuffle=False, callbacks=[self.tensorboard]
             if terminal_state else None)
 
@@ -148,8 +155,7 @@ class CDQNAgent(DQNAgent):
         self.model.fit(
             np.array(x)/255, np.array(y),
             batch_size=MINIBATCH_SIZE, verbose=0,
-            shuffle=False, callbacks=[self.tensorboard]
-            if terminal_state else None)
+            shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1

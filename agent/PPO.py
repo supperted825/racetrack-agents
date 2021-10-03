@@ -2,19 +2,20 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input, concatenate
 from tensorflow.keras.optimizers import Adam
 
+import tensorflow as tf
 import tensorflow.keras as K
 import tensorflow.keras.backend as F
 
-import math
+import os
+import csv
 import random
 import numpy as np
 import datetime
 
-from .models import get_model, ModifiedTensorBoard
+from .models import get_model
 
 # Disable Eager Execution
 from tensorflow.python.framework.ops import disable_eager_execution
-disable_eager_execution()
 
 # Constants for Prediction
 ADV_PLACEHOLDER = np.zeros((1, 1))
@@ -48,8 +49,9 @@ class PPOAgent():
             self.name = "{}_{}".format(opt.agent, opt.arch)
             self.lr = opt.lr if opt.lr else 5e-4
             self.epochs = opt.num_epochs if opt.num_epochs else 10
+            disable_eager_execution()
 
-            # Main Model to be Trained
+            # Instantiate Models
             self.actor = self.create_actor(opt.arch)
             self.critic = self.create_critic(opt.arch)
 
@@ -58,8 +60,14 @@ class PPOAgent():
 
             self.replay_memory = []
 
+            # For Manual Logging (TensorBoard doesn't work with Eager Execution Disabled)
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-            self.tensorboard = ModifiedTensorBoard(self.name, log_dir=f"logs/{self.name}-{time}")
+            self.logdir = f"logs/{self.name}-{time}"
+            os.mkdir(self.logdir)
+
+            with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
+                write = csv.writer(file)
+                write.writerow(['Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
 
     def create_actor(self, backbone):
@@ -85,8 +93,7 @@ class PPOAgent():
         model.compile(
                     loss=self.PPO_loss(adv,act),
                     optimizer=Adam(learning_rate=self.lr),
-                    metrics=['accuracy'],
-                    )
+                    metrics=['accuracy'])
 
         model.summary()
 
@@ -141,6 +148,14 @@ class PPOAgent():
             return actor_loss + entropy_loss
         
         return loss
+
+
+    def write_log(self, step, **logs):
+        """Write Episode Information to CSV File"""
+        line = [step] +  [value for value in logs.values()]
+        with open(self.logdir + '/log.csv', 'a', newline ='') as file:
+            write = csv.writer(file)
+            write.writerow(line)
 
 
     def update_replay(self, obs, action, reward, done):
@@ -210,10 +225,10 @@ class PPOAgent():
                         np.repeat(ACT_PLACEHOLDER, MINIBATCH_SIZE, axis=0)])
 
         # Train Actor & Critic
-        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0, callbacks=[self.tensorboard])
-        self.critic.fit(x=obss, y=rets, epochs=self.epochs, verbose=0, callbacks=[self.tensorboard])
+        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0)
+        self.critic.fit(x=obss, y=rets, epochs=self.epochs, verbose=0)
 
-        # Update Target Network
+        # Soft-Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
         target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
         new_weights = TARGET_UPDATE_ALPHA * actor_weights \
