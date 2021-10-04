@@ -37,18 +37,18 @@ class PPOAgent():
 
             # Configs & Hyperparameters
             self.name = "{}_{}".format(opt.agent, opt.arch)
-            self.lr = float(opt.lr)
-            self.epochs = int(opt.num_epochs)
-            self.batch_size = int(opt.batch_size)
+            self.lr = opt.lr
+            self.epochs = opt.num_epochs
+            self.batch_size = opt.batch_size
             disable_eager_execution()
 
             # PPO Hyperparameters
-            self.gae_gamma = float(opt.gae_gamma)
-            self.gae_lambda = float(opt.gae_lambda)
-            self.epsilon = float(opt.ppo_epsilon)
-            self.entropy_loss = float(opt.ppo_entropy)
-            self.target_alpha = float(opt.target_alpha)
-            self.actor_sigma = float(opt.actor_sigma)
+            self.GAE_GAMMA = opt.gae_gamma
+            self.GAE_LAMBDA = opt.gae_lambda
+            self.PPO_EPSILON = opt.ppo_epsilon
+            self.ENTROPY = opt.ppo_entropy
+            self.TARGET_ALPHA = opt.target_alpha
+            self.ACTOR_SIGMA = opt.actor_sigma
 
             # Instantiate Models & Replay Buffer
             self.actor = self.create_actor(opt.arch)
@@ -124,8 +124,8 @@ class PPOAgent():
 
         def pred2logpdf(y_true, y_pred):
             """Convert Model Output to log PDF"""
-            pdf = 1 / (F.sqrt(2 * np.pi * F.square(self.actor_sigma))) * \
-                    F.exp(-0.5 * F.square((y_true-y_pred)/self.actor_sigma))
+            pdf = 1 / (F.sqrt(2 * np.pi * F.square(self.ACTOR_SIGMA))) * \
+                    F.exp(-0.5 * F.square((y_true-y_pred)/self.ACTOR_SIGMA))
             log_pdf = F.log(pdf + F.epsilon())
             return log_pdf
         
@@ -137,12 +137,12 @@ class PPOAgent():
 
             # Clipped Actor Loss
             loss1 = r * adv
-            loss2 = F.clip(r, 1 - self.epsilon, 1 + self.epsilon) * r
+            loss2 = F.clip(r, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON) * r
             actor_loss = - F.mean(F.minimum(loss1, loss2))
 
             # Entropy Bonus
-            entropy_loss = self.entropy_loss * \
-                        F.mean((-F.log(2*np.pi*F.square(self.actor_sigma))+1)/2)
+            entropy_loss = self.ENTROPY * \
+                        F.mean((-F.log(2*np.pi*F.square(self.ACTOR_SIGMA))+1)/2)
 
             return actor_loss + entropy_loss
         
@@ -174,8 +174,8 @@ class PPOAgent():
             last_val = replay_memory[-1][4]
         
         last_adv = 0
-        g = self.gae_gamma
-        l = self.gae_lambda
+        g = self.GAE_GAMMA
+        l = self.GAE_LAMBDA
 
         # Initialise Output Arrays with Appropriate Shapes
         obss = np.zeros((len(replay_memory), 4, 128, 128))
@@ -207,7 +207,7 @@ class PPOAgent():
         if optimal:
             action = [mu for mu in mus]
         else:
-            action = [random.gauss(mu,self.actor_sigma) for mu in mus]
+            action = [random.gauss(mu,self.ACTOR_SIGMA) for mu in mus]
         return action
 
 
@@ -232,6 +232,6 @@ class PPOAgent():
         # Soft-Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
         target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
-        new_weights = self.target_alpha * actor_weights \
-                        + (1-self.target_alpha) * target_actor_weights
+        new_weights = self.TARGET_ALPHA * actor_weights \
+                        + (1-self.TARGET_ALPHA) * target_actor_weights
         self.target_actor.set_weights(new_weights)

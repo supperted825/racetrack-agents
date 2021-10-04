@@ -18,14 +18,14 @@ class DQNAgent(object):
 
         # Configs & Hyperparameters
         self.name = "{}_{}".format(opt.agent, opt.arch)
-        self.lr = float(opt.lr)
-        self.batch_size = int(opt.batch_size)
+        self.lr = opt.lr
+        self.batch_size = opt.batch_size
 
         # DQN Hyperparameters
-        self.gamma = float(opt.dqn_gamma)
-        self.update_freq = int(opt.update_freq)
-        self.replay_size = int(opt.replay_size)
-        self.min_replay_size = int(opt.min_replay_size)
+        self.GAMMA = opt.dqn_gamma
+        self.UPDATE_FREQ = opt.update_freq
+        self.REPLAY_SIZE = opt.replay_size
+        self.MIN_REPLAY_SIZE = opt.min_replay_size
 
         # Main Model to be Trained
         self.model = self.create_model(opt.arch)
@@ -34,7 +34,7 @@ class DQNAgent(object):
         self.target_model = self.create_model(opt.arch)
         self.target_model.set_weights(self.model.get_weights())
 
-        self.replay_memory = deque(maxlen=self.replay_size)
+        self.replay_memory = deque(maxlen=self.REPLAY_SIZE)
         self.target_update_counter = 0
 
         # Logging
@@ -84,7 +84,7 @@ class DQNAgent(object):
     def train(self, terminal_state):
 
         # Don't Train Unless Sufficient Data
-        if len(self.replay_memory) < self.min_replay_size:
+        if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
             return
         
         # Sample Batch of Data for Updating Model
@@ -102,7 +102,7 @@ class DQNAgent(object):
 
             # Q Value is Reward if Terminal, otherwise we use G
             if not done:
-                new_qvalue = reward + self.gamma * np.max(future_qvalues[index])
+                new_qvalue = reward + self.GAMMA * np.max(future_qvalues[index])
             else:
                 new_qvalue = reward
 
@@ -122,7 +122,7 @@ class DQNAgent(object):
         if terminal_state:
             self.target_update_counter += 1
         
-        if self.target_update_counter > self.update_freq:
+        if self.target_update_counter > self.UPDATE_FREQ:
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
@@ -133,10 +133,10 @@ class CDQNAgent(DQNAgent):
     def train(self, terminal_state):
         """Modified Training Sequence with Clipped Update Rule"""
 
-        if len(self.replay_memory) < self.min_replay_size:
+        if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
             return
         
-        minibatch = random.sample(self.replay_memory, self.replay_size)
+        minibatch = random.sample(self.replay_memory, self.REPLAY_SIZE)
 
         current_states = np.array([item[0] for item in minibatch])/255
         current_qvalues = self.model.predict(current_states)
@@ -151,7 +151,7 @@ class CDQNAgent(DQNAgent):
             if not done:
                 model_maxq = np.max(new_current_qvalues[index])
                 target_model_maxq = np.max(new_future_qvalues[index])
-                new_qvalue = reward + self.gamma * np.min([model_maxq, target_model_maxq])
+                new_qvalue = reward + self.GAMMA * np.min([model_maxq, target_model_maxq])
             else:
                 new_qvalue = reward
 
@@ -169,6 +169,6 @@ class CDQNAgent(DQNAgent):
         if terminal_state:
             self.target_update_counter += 1
         
-        if self.target_update_counter > self.update_freq:
+        if self.target_update_counter > self.UPDATE_FREQ:
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0

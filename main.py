@@ -46,29 +46,29 @@ class opts(object):
         self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
 
         # Experiment Settings
-        self.parser.add_argument('--num_episodes', default=100, help='Number of Episodes to Train')
-        self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
-        self.parser.add_argument('--min_reward', default=50, help='Minimum Reward to Save Model')
+        self.parser.add_argument('--num_episodes', default=100, type=int, help='Number of Episodes to Train')
+        self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
+        self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
-        self.parser.add_argument('--lr', default=5e-4, help='Policy Learning Rate')
-        self.parser.add_argument('--batch_size', default=64, help='Policy Update Batch Size')
-        self.parser.add_argument('--num_epochs', default=10, help='Num Epochs for Policy Gradient')
+        self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
+        self.parser.add_argument('--batch_size', default=64, type=int, help='Policy Update Batch Size')
+        self.parser.add_argument('--num_epochs', default=10, type=int, help='Num Epochs for Policy Gradient')
 
         # DQN Hyperparameters
-        self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
-        self.parser.add_argument('--dqn_gamma', default=0.99, help='Frequency of Updating Target Model')
-        self.parser.add_argument('--update_freq', default=20, help='Frequency of Updating Target Model')
-        self.parser.add_argument('--replay_size', default=10000, help='Size of the Replay Memory Buffer')
-        self.parser.add_argument('--min_replay_size', default=500, help='Minimum Memory Entries before Training')
+        self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')
+        self.parser.add_argument('--dqn_gamma', default=0.99, type=float, help='Frequency of Updating Target Model')
+        self.parser.add_argument('--update_freq', default=20, type=int, help='Frequency of Updating Target Model')
+        self.parser.add_argument('--replay_size', default=10000, type=int, help='Size of the Replay Memory Buffer')
+        self.parser.add_argument('--min_replay_size', default=500, type=int, help='Minimum Memory Entries before Training')
 
         # PPO Hyperparameters
-        self.parser.add_argument('--gae_lambda', default=0.99, help='Generalised Advantage Estimate Lambda')
-        self.parser.add_argument('--gae_gamma', default=0.95, help='Generalised Advantage Estimate Gamma')
-        self.parser.add_argument('--ppo_epsilon', default=0.2, help='Clipping Loss Epsilon')
-        self.parser.add_argument('--ppo_entropy', default=0.001, help='Regulariser Entropy Loss Ratio')
-        self.parser.add_argument('--target_alpha', default=0.9, help='Target Network Update Coefficient')
-        self.parser.add_argument('--actor_sigma', default=0.2, help='Actor Continuous Action Variance')
+        self.parser.add_argument('--gae_lambda', default=0.99, type=float, help='Generalised Advantage Estimate Lambda')
+        self.parser.add_argument('--gae_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
+        self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
+        self.parser.add_argument('--target_alpha', default=0.9, type=float, help='Target Network Update Coefficient')
+        self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
 
     def parse(self, args=''):
         if args == '':
