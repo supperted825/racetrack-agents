@@ -7,6 +7,12 @@ import datetime
 import numpy as np
 import tensorflow.keras as keras
 
+import os
+import glob
+import subprocess
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
 
@@ -41,7 +47,7 @@ class opts(object):
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=100, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, help='Frequency of Logging (Episodes)')
-        self.parser.add_argument('--min_reward', default=100, help='Minimum Reward to Save Model')
+        self.parser.add_argument('--min_reward', default=50, help='Minimum Reward to Save Model')
 
         # Hyperparameters
         self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
@@ -55,6 +61,28 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
         return opt
+
+
+def generate_video(seq, name, folder="./video"):
+    """Save Videos from Sequence of Images"""
+    for i in range(len(seq)):
+        plt.imshow(seq[i], cmap=cm.Greys_r)
+        plt.savefig(folder + "/tmp/file%02d.png" % i)
+
+    os.chdir(folder)
+    subprocess.call([
+        'ffmpeg', '-framerate', '8', '-i', 'file%02d.png', '-r', '30', '-pix_fmt', 'yuv420p',
+        '{}.mp4'.format(name)])
+    for file_name in glob.glob("*.png"):
+        os.remove(file_name)
+
+
+def display_observations(obs):
+    """Display Grayscale Observation Plots"""
+    _, axes = plt.subplots(ncols=4, figsize=(12, 5))
+    for i, ax in enumerate(axes.flat):
+       ax.imshow(obs[i, ...].T, cmap=plt.get_cmap('gray'))
+    plt.show()
 
 
 def trainDQN(env, agent, num_episodes, opt):
@@ -120,10 +148,10 @@ def trainDQN(env, agent, num_episodes, opt):
 
 def trainPPO(env, agent, num_episodes, opt=None):
 
-    """Training Sequence for PPO, DDPG"""
+    """Training Sequence for PPO"""
 
     rewards = []
-    epsilon = opt.epsilon
+    img = []
 
     for episode in tqdm(range(1, num_episodes + 1)):
 
@@ -165,15 +193,6 @@ def trainPPO(env, agent, num_episodes, opt=None):
 
 
 if __name__ == "__main__":
-
-    import tensorflow as tf
-
-    writer = tf.summary.create_file_writer("/tmp/mylogs")
-    with writer.as_default():
-        for step in range(100):
-            # other model code would go here
-            tf.summary.scalar("my_metric", 0.5, step=step)
-            writer.flush()
     
     # Parse Arguments
     opt = opts().parse()
