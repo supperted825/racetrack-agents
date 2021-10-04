@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
 
+
 EPSILON_DECAY = 0.8
 MIN_EPSILON = 0.05
 
@@ -50,11 +51,25 @@ class opts(object):
         self.parser.add_argument('--min_reward', default=50, help='Minimum Reward to Save Model')
 
         # Hyperparameters
-        self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
-        self.parser.add_argument('--lr', default=None, help='Policy Learning Rate')
+        self.parser.add_argument('--lr', default=5e-4, help='Policy Learning Rate')
+        self.parser.add_argument('--batch_size', default=64, help='Policy Update Batch Size')
         self.parser.add_argument('--num_epochs', default=10, help='Num Epochs for Policy Gradient')
 
-    
+        # DQN Hyperparameters
+        self.parser.add_argument('--epsilon', default=1, help='Initial Value of Epsilon')
+        self.parser.add_argument('--dqn_gamma', default=0.99, help='Frequency of Updating Target Model')
+        self.parser.add_argument('--update_freq', default=20, help='Frequency of Updating Target Model')
+        self.parser.add_argument('--replay_size', default=10000, help='Size of the Replay Memory Buffer')
+        self.parser.add_argument('--min_replay_size', default=500, help='Minimum Memory Entries before Training')
+
+        # PPO Hyperparameters
+        self.parser.add_argument('--gae_lambda', default=0.99, help='Generalised Advantage Estimate Lambda')
+        self.parser.add_argument('--gae_gamma', default=0.95, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--ppo_epsilon', default=0.2, help='Clipping Loss Epsilon')
+        self.parser.add_argument('--ppo_entropy', default=0.001, help='Regulariser Entropy Loss Ratio')
+        self.parser.add_argument('--target_alpha', default=0.9, help='Target Network Update Coefficient')
+        self.parser.add_argument('--actor_sigma', default=0.2, help='Actor Continuous Action Variance')
+
     def parse(self, args=''):
         if args == '':
             opt = self.parser.parse_args()
@@ -69,11 +84,10 @@ def generate_video(seq, name, folder="./video"):
         plt.imshow(seq[i], cmap=cm.Greys_r)
         plt.savefig(folder + "/tmp/file%02d.png" % i)
 
-    os.chdir(folder)
     subprocess.call([
-        'ffmpeg', '-framerate', '8', '-i', 'file%02d.png', '-r', '30', '-pix_fmt', 'yuv420p',
-        '{}.mp4'.format(name)])
-    for file_name in glob.glob("*.png"):
+        'ffmpeg', '-framerate', '8', '-i', 'file%02d.png',
+        '-r', '30', '-pix_fmt', 'yuv420p', '{}/{}.mp4'.format(folder, name)])
+    for file_name in glob.glob(folder + "/tmp/*.png"):
         os.remove(file_name)
 
 

@@ -20,15 +20,6 @@ from .models import get_model
 ADV_PLACEHOLDER = np.zeros((1, 1))
 ACT_PLACEHOLDER = np.zeros((1, 2))
 
-# PPO Parameters
-GAE_GAMMA = 0.99
-GAE_LAMBDA = 0.95
-PPO_EPSILON = 0.2
-ACTOR_SIGMA = 1.0
-ENTROPY_LOSS_RATIO = 0.001
-TARGET_UPDATE_ALPHA = 0.9
-MINIBATCH_SIZE = 64
-
 
 """PPO Pseudocode"""
 # Initial policy parameters and initial function value parameters
@@ -44,13 +35,22 @@ class PPOAgent():
 
     def __init__(self, opt=None):
 
-            # Configs
+            # Configs & Hyperparameters
             self.name = "{}_{}".format(opt.agent, opt.arch)
-            self.lr = opt.lr if opt.lr else 5e-4
-            self.epochs = opt.num_epochs if opt.num_epochs else 10
+            self.lr = float(opt.lr)
+            self.epochs = int(opt.num_epochs)
+            self.batch_size = int(opt.batch_size)
             disable_eager_execution()
 
-            # Instantiate Models
+            # PPO Hyperparameters
+            self.gae_gamma = float(opt.gae_gamma)
+            self.gae_lambda = float(opt.gae_lambda)
+            self.epsilon = float(opt.ppo_epsilon)
+            self.entropy_loss = float(opt.ppo_entropy)
+            self.target_alpha = float(opt.target_alpha)
+            self.actor_sigma = float(opt.actor_sigma)
+
+            # Instantiate Models & Replay Buffer
             self.actor = self.create_actor(opt.arch)
             self.critic = self.create_critic(opt.arch)
 
@@ -124,8 +124,8 @@ class PPOAgent():
 
         def pred2logpdf(y_true, y_pred):
             """Convert Model Output to log PDF"""
-            pdf = 1 / (F.sqrt(2 * np.pi * F.square(ACTOR_SIGMA))) * \
-                    F.exp(-0.5 * F.square((y_true-y_pred)/ACTOR_SIGMA))
+            pdf = 1 / (F.sqrt(2 * np.pi * F.square(self.actor_sigma))) * \
+                    F.exp(-0.5 * F.square((y_true-y_pred)/self.actor_sigma))
             log_pdf = F.log(pdf + F.epsilon())
             return log_pdf
         
@@ -137,12 +137,12 @@ class PPOAgent():
 
             # Clipped Actor Loss
             loss1 = r * adv
-            loss2 = F.clip(r, 1 - PPO_EPSILON, 1 + PPO_EPSILON) * r
+            loss2 = F.clip(r, 1 - self.epsilon, 1 + self.epsilon) * r
             actor_loss = - F.mean(F.minimum(loss1, loss2))
 
             # Entropy Bonus
-            entropy_loss = ENTROPY_LOSS_RATIO * \
-                        F.mean((-F.log(2*np.pi*F.square(ACTOR_SIGMA))+1)/2)
+            entropy_loss = self.entropy_loss * \
+                        F.mean((-F.log(2*np.pi*F.square(self.actor_sigma))+1)/2)
 
             return actor_loss + entropy_loss
         
@@ -164,7 +164,7 @@ class PPOAgent():
         self.replay_memory.append((obs, action, reward, mask, value))
     
 
-    def process_episode(self, replay_memory, g=GAE_GAMMA, l=GAE_LAMBDA):
+    def process_episode(self, replay_memory):
         """Process Espisode Information for Advantages & Returns, see https://arxiv.org/pdf/1506.02438.pdf"""
 
         # If Last Entry is Terminal State, Use Reward else V(s)
@@ -174,6 +174,8 @@ class PPOAgent():
             last_val = replay_memory[-1][4]
         
         last_adv = 0
+        g = self.gae_gamma
+        l = self.gae_lambda
 
         # Initialise Output Arrays with Appropriate Shapes
         obss = np.zeros((len(replay_memory), 4, 128, 128))
@@ -205,7 +207,7 @@ class PPOAgent():
         if optimal:
             action = [mu for mu in mus]
         else:
-            action = [random.gauss(mu,ACTOR_SIGMA) for mu in mus]
+            action = [random.gauss(mu,self.actor_sigma) for mu in mus]
         return action
 
 
@@ -213,15 +215,15 @@ class PPOAgent():
         
         # Calculate & Extract Advantages & Returns for Episode, then Sample
         obss, actions, rets, advs = self.process_episode(self.replay_memory)
-        batch_idx = np.random.randint(len(obss), size=MINIBATCH_SIZE)
+        batch_idx = np.random.randint(len(obss), size=self.batch_size)
         obss, actions, rets, advs = obss[batch_idx], actions[batch_idx], rets[batch_idx], advs[batch_idx]
 
         # Prepare Batch for Fitting
         advs = advs.reshape(-1,1)
         advs = K.utils.normalize(advs)
         olds = self.target_actor.predict_on_batch([obss,
-                        np.repeat(ADV_PLACEHOLDER, MINIBATCH_SIZE, axis=0),
-                        np.repeat(ACT_PLACEHOLDER, MINIBATCH_SIZE, axis=0)])
+                        np.repeat(ADV_PLACEHOLDER, self.batch_size, axis=0),
+                        np.repeat(ACT_PLACEHOLDER, self.batch_size, axis=0)])
 
         # Train Actor & Critic
         self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0)
@@ -230,6 +232,6 @@ class PPOAgent():
         # Soft-Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
         target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
-        new_weights = TARGET_UPDATE_ALPHA * actor_weights \
-                        + (1-TARGET_UPDATE_ALPHA) * target_actor_weights
+        new_weights = self.target_alpha * actor_weights \
+                        + (1-self.target_alpha) * target_actor_weights
         self.target_actor.set_weights(new_weights)

@@ -11,22 +11,21 @@ import datetime
 from .models import get_model
 
 
-REPLAY_MEMORY_SIZE = 10000
-MIN_REPLAY_MEMORY_SIZE = 500
-MODEL_NAME = "DQN_DoubleConv256"
-MINIBATCH_SIZE = 64
-UPDATE_TARGET_FREQ = 50
-DISCOUNT = 0.99
-
-
 class DQNAgent(object):
     """Double DQN Agent"""
 
     def __init__(self, opt=None):
 
-        # Configs
+        # Configs & Hyperparameters
         self.name = "{}_{}".format(opt.agent, opt.arch)
-        self.lr = opt.lr if opt.lr else 5e-4
+        self.lr = float(opt.lr)
+        self.batch_size = int(opt.batch_size)
+
+        # DQN Hyperparameters
+        self.gamma = float(opt.dqn_gamma)
+        self.update_freq = int(opt.update_freq)
+        self.replay_size = int(opt.replay_size)
+        self.min_replay_size = int(opt.min_replay_size)
 
         # Main Model to be Trained
         self.model = self.create_model(opt.arch)
@@ -35,7 +34,7 @@ class DQNAgent(object):
         self.target_model = self.create_model(opt.arch)
         self.target_model.set_weights(self.model.get_weights())
 
-        self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
+        self.replay_memory = deque(maxlen=self.replay_size)
         self.target_update_counter = 0
 
         # Logging
@@ -85,11 +84,11 @@ class DQNAgent(object):
     def train(self, terminal_state):
 
         # Don't Train Unless Sufficient Data
-        if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
+        if len(self.replay_memory) < self.min_replay_size:
             return
         
         # Sample Batch of Data for Updating Model
-        minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
+        minibatch = random.sample(self.replay_memory, self.batch_size)
 
         current_states = np.array([item[0] for item in minibatch])/255
         current_qvalues = self.model.predict(current_states)
@@ -103,7 +102,7 @@ class DQNAgent(object):
 
             # Q Value is Reward if Terminal, otherwise we use G
             if not done:
-                new_qvalue = reward + DISCOUNT * np.max(future_qvalues[index])
+                new_qvalue = reward + self.gamma * np.max(future_qvalues[index])
             else:
                 new_qvalue = reward
 
@@ -116,14 +115,14 @@ class DQNAgent(object):
 
         self.model.fit(
             np.array(x)/255, np.array(y),
-            batch_size=MINIBATCH_SIZE, verbose=0,
+            batch_size=self.batch_size, verbose=0,
             shuffle=False, callbacks=[self.tensorboard]
             if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1
         
-        if self.target_update_counter > UPDATE_TARGET_FREQ:
+        if self.target_update_counter > self.update_freq:
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
@@ -134,10 +133,10 @@ class CDQNAgent(DQNAgent):
     def train(self, terminal_state):
         """Modified Training Sequence with Clipped Update Rule"""
 
-        if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
+        if len(self.replay_memory) < self.min_replay_size:
             return
         
-        minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
+        minibatch = random.sample(self.replay_memory, self.replay_size)
 
         current_states = np.array([item[0] for item in minibatch])/255
         current_qvalues = self.model.predict(current_states)
@@ -152,7 +151,7 @@ class CDQNAgent(DQNAgent):
             if not done:
                 model_maxq = np.max(new_current_qvalues[index])
                 target_model_maxq = np.max(new_future_qvalues[index])
-                new_qvalue = reward + DISCOUNT * np.min([model_maxq, target_model_maxq])
+                new_qvalue = reward + self.gamma * np.min([model_maxq, target_model_maxq])
             else:
                 new_qvalue = reward
 
@@ -164,12 +163,12 @@ class CDQNAgent(DQNAgent):
 
         self.model.fit(
             np.array(x)/255, np.array(y),
-            batch_size=MINIBATCH_SIZE, verbose=0,
+            batch_size=self.batch_size, verbose=0,
             shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1
         
-        if self.target_update_counter > UPDATE_TARGET_FREQ:
+        if self.target_update_counter > self.update_freq:
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
