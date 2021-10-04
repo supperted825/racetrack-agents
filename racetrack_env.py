@@ -53,9 +53,9 @@ class RaceTrackEnv(AbstractEnv):
             "policy_frequency": 5,
 
             # Reward Values
-            "collision_reward": -200,
+            "collision_reward": -10,
             "lane_centering_cost": 4,
-            "action_reward": -0.3,
+            "action_reward": -1,
             "offroad_terminal": False,
 
             # Rendering Information
@@ -84,7 +84,7 @@ class RaceTrackEnv(AbstractEnv):
         # Penalise Off-Road Driving
         reward = reward if self.vehicle.on_road else self.config["collision_reward"]
 
-        return utils.lmap(reward, [self.config["collision_reward"], 0], [0, 1])
+        return reward
 
 
     def _is_terminal(self) -> bool:
