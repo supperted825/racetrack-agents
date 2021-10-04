@@ -1,11 +1,11 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input, concatenate
 from tensorflow.keras.optimizers import Adam
+from tensorflow.python.framework.ops import disable_eager_execution
 
 import tensorflow as tf
 import tensorflow.keras as K
 import tensorflow.keras.backend as F
-from tensorflow.python.framework.ops import disable_eager_execution
 
 import os
 import csv
@@ -66,7 +66,7 @@ class PPOAgent():
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
-                write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+                write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward'])
 
 
     def create_actor(self, backbone):
