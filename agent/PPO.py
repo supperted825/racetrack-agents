@@ -201,7 +201,7 @@ class PPOAgent():
 
     def act(self, obs, optimal=False):
         """Act on Parameterised Normal Distribution"""
-        mus = self.actor.predict([obs.reshape(1,*obs.shape), ADV_PLACEHOLDER, ACT_PLACEHOLDER])[0]
+        mus = self.target_actor.predict([obs.reshape(1,*obs.shape), ADV_PLACEHOLDER, ACT_PLACEHOLDER])[0]
         if optimal:
             action = [mu for mu in mus]
         else:
