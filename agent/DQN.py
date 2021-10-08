@@ -28,10 +28,10 @@ class DQNAgent(object):
         self.MIN_REPLAY_SIZE = opt.min_replay_size
 
         # Main Model to be Trained
-        self.model = self.create_model(opt.arch)
+        self.model = self.create_model(opt)
 
         # Target Model is Used for Prediction at Every Step
-        self.target_model = self.create_model(opt.arch)
+        self.target_model = self.create_model(opt)
         self.target_model.set_weights(self.model.get_weights())
 
         self.replay_memory = deque(maxlen=self.REPLAY_SIZE)
@@ -57,10 +57,10 @@ class DQNAgent(object):
                 self.writer.flush()    
 
 
-    def create_model(self, arch):
+    def create_model(self, opt):
 
         # Retrieve Model Backbone from Model File
-        model = get_model(arch)
+        model = get_model(opt.arch, opt.obs_dim)
 
         # Add Final Output Layers for DQN Agent & Compile with Loss
         model.add(Dense(64))

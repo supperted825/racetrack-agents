@@ -1,8 +1,8 @@
 from tqdm import tqdm
 from gym.wrappers import Monitor
-from racetrack_env import RaceTrackEnv
 
 import argparse
+import gym
 import datetime
 import numpy as np
 import tensorflow.keras as keras
@@ -180,12 +180,12 @@ def trainPPO(env, agent, num_episodes, opt=None):
         while not done:
 
             # Get Action & Step Environment
-            action = agent.act(obs)
+            action = agent.act(obs.T)
             obs, reward, done, _ = env.step(action)
             episode_reward += reward
 
             # Update Replay Memory
-            agent.update_replay(obs, action, reward, done)
+            agent.update_replay(obs.T, action, reward, done)
         
         # Train Agent & Clear Replay Memory
         agent.train()
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     
     # Parse Arguments
     opt = opts().parse()
-    env = RaceTrackEnv()
+    env = gym.make('CarRacing-v0')
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation

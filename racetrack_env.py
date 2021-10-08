@@ -3,7 +3,6 @@ from __future__ import division, print_function, absolute_import
 import numpy as np
 import numpy.random as random
 
-from highway_env import utils
 from highway_env.envs.common.abstract import AbstractEnv
 from highway_env.road.lane import LineType, StraightLane, CircularLane
 from highway_env.road.road import Road, RoadNetwork
