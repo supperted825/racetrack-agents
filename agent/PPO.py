@@ -16,11 +16,6 @@ import datetime
 from .models import get_model
 
 
-# Constants for Prediction
-ADV_PLACEHOLDER = np.zeros((1, 1))
-ACT_PLACEHOLDER = np.zeros((1, 2))
-
-
 """PPO Pseudocode"""
 # Initial policy parameters and initial function value parameters
 #     for episode, do:
@@ -40,7 +35,12 @@ class PPOAgent():
             self.lr = opt.lr
             self.epochs = opt.num_epochs
             self.batch_size = opt.batch_size
+            self.num_actions = opt.num_actions
             disable_eager_execution()
+
+            # Constants for Prediction
+            self.ADV_PLACEHOLDER = np.zeros((1, 1))
+            self.ACT_PLACEHOLDER = np.zeros((1, self.num_actions))
 
             # PPO Hyperparameters
             self.GAE_GAMMA = opt.gae_gamma
@@ -51,10 +51,10 @@ class PPOAgent():
             self.ACTOR_SIGMA = opt.actor_sigma
 
             # Instantiate Models & Replay Buffer
-            self.actor = self.create_actor(opt.arch)
-            self.critic = self.create_critic(opt.arch)
+            self.actor = self.create_actor(opt)
+            self.critic = self.create_critic(opt)
 
-            self.target_actor = self.create_actor(opt.arch)
+            self.target_actor = self.create_actor(opt)
             self.target_actor.set_weights(self.actor.get_weights())
 
             self.replay_memory = []
@@ -69,15 +69,15 @@ class PPOAgent():
                 write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward'])
 
 
-    def create_actor(self, backbone):
+    def create_actor(self, opt):
 
         # Define Model Inputs
-        obs = Input(shape=(4,128,128))
+        obs = Input(shape=opt.obs_dim)
         adv = Input(shape=(1,))
-        act = Input(shape=(2,))
+        act = Input(shape=(self.num_actions,))
 
         # Retrieve Model from Model File
-        cnn = get_model(backbone)
+        cnn = get_model(opt.arch, opt.obs_dim)
         feats = cnn(obs)
 
         # Add Final Layers for PPO Actor
@@ -85,7 +85,7 @@ class PPOAgent():
         fc2 = Dense(64, activation='relu')(fc1)
 
         # Model Outputs Mean Value for Each Continuous Action
-        out = Dense(2, activation='tanh')(fc2)
+        out = Dense(self.num_actions, activation='tanh')(fc2)
 
         # Compile Model with Custom PPO Loss
         model = Model(inputs=[obs, adv, act], outputs=out)
@@ -99,10 +99,10 @@ class PPOAgent():
         return model
 
 
-    def create_critic(self, backbone):
+    def create_critic(self, opt):
 
         # Retrieve Model Backbone from Model File
-        model = get_model(backbone)
+        model = get_model(opt.arch, opt.obs_dim)
 
         # Add Final Output Layers for PPO Critic & Compile with Loss
         model.add(Dense(64))
@@ -178,8 +178,8 @@ class PPOAgent():
         l = self.GAE_LAMBDA
 
         # Initialise Output Arrays with Appropriate Shapes
-        obss = np.zeros((len(replay_memory), 4, 128, 128))
-        acts = np.zeros((len(replay_memory), 2))
+        obss = np.zeros((len(replay_memory), 3, 96, 96))
+        acts = np.zeros((len(replay_memory), self.num_actions))
         rets = np.zeros((len(replay_memory),))
         advs = np.zeros((len(replay_memory),))
 
@@ -203,7 +203,7 @@ class PPOAgent():
 
     def act(self, obs, optimal=False):
         """Act on Parameterised Normal Distribution"""
-        mus = self.target_actor.predict([obs.reshape(1,*obs.shape), ADV_PLACEHOLDER, ACT_PLACEHOLDER])[0]
+        mus = self.target_actor.predict([obs.reshape(1,*obs.shape), self.ADV_PLACEHOLDER, self.ACT_PLACEHOLDER])[0]
         if optimal:
             action = [mu for mu in mus]
         else:
@@ -222,8 +222,8 @@ class PPOAgent():
         advs = advs.reshape(-1,1)
         advs = K.utils.normalize(advs)
         olds = self.target_actor.predict_on_batch([obss,
-                        np.repeat(ADV_PLACEHOLDER, self.batch_size, axis=0),
-                        np.repeat(ACT_PLACEHOLDER, self.batch_size, axis=0)])
+                        np.repeat(self.ADV_PLACEHOLDER, self.batch_size, axis=0),
+                        np.repeat(self.ACT_PLACEHOLDER, self.batch_size, axis=0)])
 
         # Train Actor & Critic
         self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0)

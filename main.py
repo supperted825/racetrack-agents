@@ -45,6 +45,10 @@ class opts(object):
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
         self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
 
+        # Problem Space Settings
+        self.parser.add_argument('--obs_dim', default=(3,), help='Agent Action Space Dimension')
+        self.parser.add_argument('--num_actions', default=3, help='Agent Action Space Dimension')
+
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=100, type=int, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
