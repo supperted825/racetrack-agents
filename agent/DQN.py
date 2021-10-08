@@ -60,7 +60,7 @@ class DQNAgent(object):
     def create_model(self, opt):
 
         # Retrieve Model Backbone from Model File
-        model = get_model(opt.arch, opt.obs_dim)
+        model = get_model(opt)
 
         # Add Final Output Layers for DQN Agent & Compile with Loss
         model.add(Dense(64))
