@@ -80,7 +80,7 @@ class RaceTrackEnv(AbstractEnv):
 
         # Combines Reward
         reward = laning_penalty + action_penalty \
-            + self.config["collision_reward"] * self.vehicle.crashed
+            + self.config["collision_cost"] * self.vehicle.crashed
 
         # Penalise Off-Road Driving
         reward = reward + self.config["offroad_penalty"] if not self.vehicle.on_road else reward
