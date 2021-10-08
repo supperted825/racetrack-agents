@@ -47,7 +47,7 @@ class opts(object):
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
-        self.parser.add_argument('--num_actions', default=3, help='Agent Action Space')
+        self.parser.add_argument('--num_actions', default=3, type=int, help='Agent Action Space')
 
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=100, type=int, help='Number of Episodes to Train')
