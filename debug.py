@@ -46,7 +46,7 @@ class opts(object):
         self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
 
         # Problem Space Settings
-        self.parser.add_argument('--obs_dim', default=(3,), help='Agent Action Space Dimension')
+        self.parser.add_argument('--obs_dim', default=(4,128,128), type=tuple, help='Agent Observation Space Dimension')
         self.parser.add_argument('--num_actions', default=3, help='Agent Action Space Dimension')
 
         # Experiment Settings
