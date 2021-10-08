@@ -77,7 +77,7 @@ class PPOAgent():
         act = Input(shape=(self.num_actions,))
 
         # Retrieve Model from Model File
-        cnn = get_model(opt.arch, opt.obs_dim)
+        cnn = get_model(opt)
         feats = cnn(obs)
 
         # Add Final Layers for PPO Actor
@@ -102,7 +102,7 @@ class PPOAgent():
     def create_critic(self, opt):
 
         # Retrieve Model Backbone from Model File
-        model = get_model(opt.arch, opt.obs_dim)
+        model = get_model(opt)
 
         # Add Final Output Layers for PPO Critic & Compile with Loss
         model.add(Dense(64))
