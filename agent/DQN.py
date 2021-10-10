@@ -116,8 +116,7 @@ class DQNAgent(object):
         self.model.fit(
             np.array(x)/255, np.array(y),
             batch_size=self.batch_size, verbose=0,
-            shuffle=False, callbacks=[self.tensorboard]
-            if terminal_state else None)
+            shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1
