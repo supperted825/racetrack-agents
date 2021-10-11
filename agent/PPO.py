@@ -31,11 +31,12 @@ class PPOAgent():
     def __init__(self, opt=None):
 
             # Configs & Hyperparameters
-            self.name = "{}_{}".format(opt.agent, opt.arch)
+            self.name = "{}_{}_{} Actions".format(opt.agent, opt.arch, opt.num_actions)
             self.lr = opt.lr
             self.epochs = opt.num_epochs
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
+            self.obs_dim = opt.obs_dim
             disable_eager_execution()
 
             # Constants for Prediction
@@ -159,7 +160,7 @@ class PPOAgent():
 
     def update_replay(self, obs, action, reward, done):
         """Record Stepwise Episode Information with Critic Output"""
-        value = self.critic.predict(obs.reshape(1,*obs.shape))[0]
+        value = self.critic.predict(obs.reshape(1,*obs.shape)/255)[0]
         mask = 0 if done else 1
         self.replay_memory.append((obs, action, reward, mask, value))
     
@@ -178,7 +179,7 @@ class PPOAgent():
         l = self.GAE_LAMBDA
 
         # Initialise Output Arrays with Appropriate Shapes
-        obss = np.zeros((len(replay_memory), 3, 96, 96))
+        obss = np.zeros((len(replay_memory), *self.obs_dim))
         acts = np.zeros((len(replay_memory), self.num_actions))
         rets = np.zeros((len(replay_memory),))
         advs = np.zeros((len(replay_memory),))
@@ -203,7 +204,7 @@ class PPOAgent():
 
     def act(self, obs, optimal=False):
         """Act on Parameterised Normal Distribution"""
-        mus = self.target_actor.predict([obs.reshape(1,*obs.shape), self.ADV_PLACEHOLDER, self.ACT_PLACEHOLDER])[0]
+        mus = self.target_actor.predict([obs.reshape(1,*obs.shape)/255, self.ADV_PLACEHOLDER, self.ACT_PLACEHOLDER])[0]
         if optimal:
             action = [mu for mu in mus]
         else:
@@ -221,13 +222,13 @@ class PPOAgent():
         # Prepare Batch for Fitting
         advs = advs.reshape(-1,1)
         advs = K.utils.normalize(advs)
-        olds = self.target_actor.predict_on_batch([obss,
+        olds = self.target_actor.predict_on_batch([obss/255,
                         np.repeat(self.ADV_PLACEHOLDER, self.batch_size, axis=0),
                         np.repeat(self.ACT_PLACEHOLDER, self.batch_size, axis=0)])
 
         # Train Actor & Critic
-        self.actor.fit(x=[obss, advs, olds], y=actions, epochs=self.epochs, verbose=0)
-        self.critic.fit(x=obss, y=rets, epochs=self.epochs, verbose=0)
+        self.actor.fit(x=[obss/255, advs, olds], y=actions, epochs=self.epochs, verbose=0)
+        self.critic.fit(x=obss/255, y=rets, epochs=self.epochs, verbose=0)
 
         # Soft-Update Target Network
         actor_weights = np.array(self.actor.get_weights(), dtype=object)
