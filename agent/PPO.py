@@ -1,5 +1,5 @@
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Input, concatenate
+from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.framework.ops import disable_eager_execution
 
@@ -38,6 +38,7 @@ class PPOAgent():
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
             disable_eager_execution()
+            tf.compat.v1.experimental.output_all_intermediates(True)
 
             # Constants for Prediction
             self.ADV_PLACEHOLDER = np.zeros((1, 1))
