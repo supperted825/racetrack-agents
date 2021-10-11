@@ -139,12 +139,12 @@ class PPOAgent():
 
             # Clipped Actor Loss
             loss1 = r * adv
-            loss2 = F.clip(r, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON) * r
+            loss2 = F.clip(r, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON) * adv
             actor_loss = - F.mean(F.minimum(loss1, loss2))
 
             # Entropy Bonus
             entropy_loss = self.ENTROPY * \
-                        F.mean((-F.log(2*np.pi*F.square(self.ACTOR_SIGMA))+1)/2)
+                        F.mean(-0.5 * (F.log(2*np.pi*F.square(self.ACTOR_SIGMA))+1))
 
             return actor_loss + entropy_loss
         
