@@ -4,6 +4,7 @@ from tensorflow.keras.optimizers import Adam
 
 from collections import deque
 import os
+import csv
 import random
 import numpy as np
 import datetime
@@ -17,9 +18,10 @@ class DQNAgent(object):
     def __init__(self, opt=None):
 
         # Configs & Hyperparameters
-        self.name = "{}_{}".format(opt.agent, opt.arch)
+        self.name = "{}_{}_{} Actions".format(opt.agent, opt.arch, opt.num_actions)
         self.lr = opt.lr
         self.batch_size = opt.batch_size
+        self.num_actions = opt.num_actions
 
         # DQN Hyperparameters
         self.GAMMA = opt.dqn_gamma
@@ -54,7 +56,12 @@ class DQNAgent(object):
         with self.writer.as_default():
             for name, value in logs.items():
                 tf.summary.scalar(name, value, step=step)
-                self.writer.flush()    
+                self.writer.flush()
+        
+        # line = [step] +  [value for value in logs.values()]
+        # with open(self.logdir + '/log.csv', 'a', newline ='') as file:
+        #     write = csv.writer(file)
+        #     write.writerow(line)
 
 
     def create_model(self, opt):
@@ -62,12 +69,18 @@ class DQNAgent(object):
         # Retrieve Model Backbone from Model File
         model = get_model(opt)
 
-        # Add Final Output Layers for DQN Agent & Compile with Loss
+        # Add Fully Connected Layers to Model
         model.add(Dense(64))
-        model.add(Dense(9, activation="linear"))
-        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
+        model.add(Dense(64))
 
-        # Visualise Model in Console
+        # Add Final Layer According to Num Actions
+        if self.num_actions == 2:
+            model.add(Dense(9, activation="linear"))
+        else:
+            model.add(Dense(3, activation="linear"))
+
+        # Compile & Visualise Model in Console
+        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
         model.summary()
 
         return model
