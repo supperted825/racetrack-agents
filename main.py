@@ -1,6 +1,6 @@
 from tqdm import tqdm
 from gym.wrappers import Monitor
-from racetrack_env import RaceTrackEnv
+from racetrack_env import RaceTrackEnv, RaceTrackEnv2
 
 import argparse
 import datetime
@@ -42,9 +42,10 @@ class opts(object):
         self.parser.add_argument('--mode', default='train', help='Train or Test')
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
+        self.parser.add_argument('--debug', default='store_true', help='Use HighwayEnv Implementation for Testing')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
-        self.parser.add_argument('--save_video', action="store_true", help='Saves Env Render as Video')
+        self.parser.add_argument('--save_video', action='store_true', help='Saves Env Render as Video')
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
@@ -218,7 +219,7 @@ if __name__ == "__main__":
     
     # Parse Arguments
     opt = opts().parse()
-    env = RaceTrackEnv(opt)
+    env = RaceTrackEnv2(opt) if opt.debug else RaceTrackEnv(opt)
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
