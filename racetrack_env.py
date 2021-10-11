@@ -12,7 +12,7 @@ class RaceTrackEnv(AbstractEnv):
 
     """A lane keeping control task with interaction, in a racetrack-like loop."""
 
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, opt, config: dict = None) -> None:
         super().__init__(config)
         self.lane = None
         self.lanes = []
@@ -20,16 +20,20 @@ class RaceTrackEnv(AbstractEnv):
         self.interval_trajectory = []
         self.lpv = None
 
+        # Additional Settings
+        self.config["action"]["longitudinal"] = False if opt.num_actions < 2 else True
+        self.config["observation"]["stack_size"] = opt.obs_stack
+
 
     @classmethod
     def default_config(cls) -> dict:
         config = super().default_config()
         config.update({
             "observation": {
-                "type": "GrayscaleObservation",         # Grayscale Images
+                "type": "GrayscaleObservation",
                 "observation_shape": (128, 128),
                 "stack_size": 4,
-                "weights": [0.2989, 0.5870, 0.1140],    # Weights for RGB conversion
+                "weights": [0.2989, 0.5870, 0.1140],
                 "scaling": 1.75,
             },
             "action": {
@@ -47,7 +51,7 @@ class RaceTrackEnv(AbstractEnv):
             "vehicles_density": 1,
 
             # Simulation Information
-            "duration": 200,                # Max Steps
+            "duration": 200,
             "simulation_frequency": 15,
             "policy_frequency": 5,
 
