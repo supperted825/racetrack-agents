@@ -148,7 +148,7 @@ class CDQNAgent(DQNAgent):
         if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
             return
         
-        minibatch = random.sample(self.replay_memory, self.REPLAY_SIZE)
+        minibatch = random.sample(self.replay_memory, self.batch_size)
 
         current_states = np.array([item[0] for item in minibatch])/255
         current_qvalues = self.model.predict(current_states)
