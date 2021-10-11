@@ -17,9 +17,6 @@ from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
 
 
-EPSILON_DECAY = 0.8
-MIN_EPSILON = 0.05
-
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
@@ -30,6 +27,10 @@ DISCRETE_ACTION_SPACE = {
         0: [1 ,-1], 1: [1 , 0], 2: [1 , 1],
         3: [0 ,-1], 4: [0 , 0], 5: [0 , 1],
         6: [-1,-1], 7: [-1, 0], 8: [-1, 1]
+    }
+
+SIMPLE_DISCRETE_ACTION_SPACE = {
+        0: [-1], 1 : [0], 2 : [1]
     }
 
 
@@ -47,7 +48,8 @@ class opts(object):
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
-        self.parser.add_argument('--num_actions', default=2, type=int, help='Agent Action Space')
+        self.parser.add_argument('--obs_stack', default=4, type=int, help='Grayscale Observation Stack Size')
+        self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
 
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=100, type=int, help='Number of Episodes to Train')
@@ -61,6 +63,8 @@ class opts(object):
 
         # DQN Hyperparameters
         self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')
+        self.parser.add_argument('--epsilon_decay', default=1, type=float, help='Decay Ratio of Epsilon')
+        self.parser.add_argument('--min_epsilon', default=1, type=float, help='Minimum Value of Epsilon')
         self.parser.add_argument('--dqn_gamma', default=0.99, type=float, help='Frequency of Updating Target Model')
         self.parser.add_argument('--update_freq', default=20, type=int, help='Frequency of Updating Target Model')
         self.parser.add_argument('--replay_size', default=10000, type=int, help='Size of the Replay Memory Buffer')
@@ -107,7 +111,7 @@ def trainDQN(env, agent, num_episodes, opt):
 
     """Training Sequence for DQN"""
 
-    rewards = []
+    rewards, best = [], 0
     epsilon = opt.epsilon
 
     for episode in tqdm(range(1, num_episodes + 1)):
@@ -121,11 +125,14 @@ def trainDQN(env, agent, num_episodes, opt):
             # E-Soft Action Selection
             if np.random.random() > epsilon:
                 action_idx = np.argmax(agent.get_qvalues(obs))
-            else:
+            elif opt.num_actions == 2:
                 action_idx = np.random.randint(0, len(DISCRETE_ACTION_SPACE))
+            else:
+                action_idx = np.random.randint(0, len(SIMPLE_DISCRETE_ACTION_SPACE))
 
             # Step through Environment with Continuous Actions
-            new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx])
+            new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
+                                                SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
             episode_reward += reward
 
             # Update Replay Memory & Train Agent Model
@@ -137,7 +144,6 @@ def trainDQN(env, agent, num_episodes, opt):
         # Log Episode Rewards
         rewards.append(episode_reward)
         print(episode_reward)
-        best = 0
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
@@ -153,14 +159,14 @@ def trainDQN(env, agent, num_episodes, opt):
                 agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
 
         # Decay Epsilon
-        if epsilon > MIN_EPSILON:
-            epsilon *= EPSILON_DECAY
-            epsilon = max(MIN_EPSILON, epsilon)
+        if epsilon > opt.min_epsilon:
+            epsilon *= opt.epsilon_decay
+            epsilon = max(opt.min_epsilon, epsilon)
 
         """
         # Linear Epsilon Decay
-        if epsilon > MIN_EPSILON:
-            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - MIN_EPSILON)
+        if epsilon > opt.min_epsilon:
+            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - opt.min_epsilon)
         """
 
 
@@ -168,8 +174,7 @@ def trainPPO(env, agent, num_episodes, opt=None):
 
     """Training Sequence for PPO"""
 
-    rewards = []
-    img = []
+    rewards, best = [], 0
 
     for episode in tqdm(range(1, num_episodes + 1)):
 
@@ -194,7 +199,6 @@ def trainPPO(env, agent, num_episodes, opt=None):
         # Log Episode Rewards
         rewards.append(episode_reward)
         print(episode_reward)
-        best = 0
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
@@ -214,7 +218,7 @@ if __name__ == "__main__":
     
     # Parse Arguments
     opt = opts().parse()
-    env = RaceTrackEnv()
+    env = RaceTrackEnv(opt)
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
