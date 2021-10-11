@@ -9,8 +9,6 @@ A reinforcement learning task for simultaneous lane-following and obstacle avoid
 
 * [main.py](main.py) - Main python file for running training & testing sequences. Can be run with various options.
 
-* [debug.py](debug.py) - Sub version of main.py for testing self-written RL algorithms on OpenAI's Car-Racing env.
-
 * [racetrack_env.py](racetrack_env.py) - Looped Race Track Environment for the RL problem.
 
 * [agent/models.py](/agent/models.py) - Contains NN architectures that can be imported for various agents.
