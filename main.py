@@ -216,7 +216,8 @@ def trainPPO(env, agent, num_episodes, opt=None):
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
                 best = avg_reward
                 time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-                agent.model.save(f'models/{agent.name}__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
+                agent.actor.save(f'models/{agent.name}_actor__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
+                agent.critic.save(f'models/{agent.name}_critic__{max_reward:_>7.2f}max_{avg_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{time}.model')
 
 
 if __name__ == "__main__":
