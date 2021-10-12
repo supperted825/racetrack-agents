@@ -90,6 +90,9 @@ class RaceTrackEnv(AbstractEnv):
         # Penalise Off-Road Driving
         reward = reward + self.config["offroad_penalty"] if not self.vehicle.on_road else reward
 
+        # Map Reward to a Range of 1 to Control Episode Reward Scale
+        reward = utils.lmap(reward, [self.config["collision_cost"], 0], [0, 1])
+
         return reward
 
 
@@ -270,7 +273,7 @@ class RaceTrackEnv2(AbstractEnv):
 
         # Additional Settings
         self.config["action"]["longitudinal"] = False if opt.num_actions < 2 else True
-        self.config["observation"]["stack_size"] = opt.obs_stack
+        # self.config["observation"]["stack_size"] = opt.obs_stack
 
 
     @classmethod
