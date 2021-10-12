@@ -80,14 +80,14 @@ class PPOAgent():
 
         # Retrieve Model from Model File
         cnn = get_model(opt)
-        feats = cnn(obs)
+        x = cnn(obs)
 
-        # Add Final Layers for PPO Actor
-        fc1 = Dense(64, activation='relu')(feats)
-        fc2 = Dense(64, activation='relu')(fc1)
+        # Add FC Layers for PPO Actor
+        for _ in range(opt.fc_layers):
+            x = Dense(opt.fc_width, activation='relu')(x)
 
         # Model Outputs Mean Value for Each Continuous Action
-        out = Dense(self.num_actions, activation='tanh')(fc2)
+        out = Dense(self.num_actions, activation='tanh')(x)
 
         # Compile Model with Custom PPO Loss
         model = Model(inputs=[obs, adv, act], outputs=out)
@@ -106,9 +106,11 @@ class PPOAgent():
         # Retrieve Model Backbone from Model File
         model = get_model(opt)
 
-        # Add Final Output Layers for PPO Critic & Compile with Loss
-        model.add(Dense(64))
-        model.add(Dense(64))
+        # Add FC Layers for PPO Critic
+        for _ in range(opt.fc_layers):
+            model.add(Dense(opt.fc_width))
+
+        # Model Outputs Value Estimate for Each State
         model.add(Dense(1))
 
         # Critic Simply Uses MSE Loss

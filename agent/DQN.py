@@ -70,8 +70,8 @@ class DQNAgent(object):
         model = get_model(opt)
 
         # Add Fully Connected Layers to Model
-        model.add(Dense(64))
-        model.add(Dense(64))
+        for _ in range(opt.fc_layers):
+            model.add(Dense(opt.fc_width))
 
         # Add Final Layer According to Num Actions
         if self.num_actions == 2:
