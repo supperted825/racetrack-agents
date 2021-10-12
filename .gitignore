@@ -2,6 +2,7 @@ videos/
 models/
 logs/
 pbslogs/
+jobscripts/
 *.o*
 *.pbs
 *.DS_Store
