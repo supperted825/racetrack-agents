@@ -48,8 +48,8 @@ class opts(object):
 
         # Neural Network Settings
         self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
-        self.parser.add_argument('--fc_layers', default=2, help='Number of Dense Layers')
-        self.parser.add_argument('--fc_width', default=256, help='Number of Channels in Dense Layers')
+        self.parser.add_argument('--fc_layers', default=2, type=int, help='Number of Dense Layers')
+        self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
