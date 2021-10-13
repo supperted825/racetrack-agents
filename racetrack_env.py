@@ -24,7 +24,9 @@ class RaceTrackEnv(AbstractEnv):
 
         # Additional Settings
         self.config["action"]["longitudinal"] = False if opt.num_actions < 2 else True
-        self.config["observation"]["stack_size"] = opt.obs_stack
+        self.config["observation"]["stack_size"] = opt.obs_dim[0]
+        self.config["observation"]["observation_shape"] = tuple(opt.obs_dim[-2:])
+        print(self.config["observation"])
 
 
     @classmethod

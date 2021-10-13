@@ -53,7 +53,6 @@ class opts(object):
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
-        self.parser.add_argument('--obs_stack', default=4, type=int, help='Grayscale Observation Stack Size')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
 
         # Experiment Settings
