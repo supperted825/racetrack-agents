@@ -60,9 +60,9 @@ class RaceTrackEnv(AbstractEnv):
             "policy_frequency": 5,
 
             # Reward Values
-            "collision_cost": -10,
-            "lane_centering_cost": 2,
-            "action_cost": 0.1,
+            "collision_reward": -1,
+            "lane_centering_cost": 4,
+            "action_reward": -0.3,
             "offroad_penalty": -1,
             "offroad_terminal": False,
 
@@ -76,26 +76,14 @@ class RaceTrackEnv(AbstractEnv):
 
 
     def _reward(self, action: np.ndarray) -> float:
-        """Environment Rewards - Good Agent Should Approach Reward of 0"""
-        
-        # Rewards Shorter Distance to Lane Center
         _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
-        laning_penalty = - self.config["lane_centering_cost"]*lateral**2
-
-        # Rewards Minimal Action
-        action_penalty = - self.config["action_cost"]*np.linalg.norm(action)
-
-        # Combines Reward
-        reward = laning_penalty + action_penalty \
-            + self.config["collision_cost"] * self.vehicle.crashed
-
-        # Penalise Off-Road Driving
-        reward = reward + self.config["offroad_penalty"] if not self.vehicle.on_road else reward
-
-        # Map Reward to a Range of 1 to Control Episode Reward Scale
-        reward = utils.lmap(reward, [self.config["collision_cost"], 0], [0, 1])
-
-        return reward
+        lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
+        action_reward = self.config["action_reward"]*np.linalg.norm(action)
+        reward = lane_centering_reward \
+            + action_reward \
+            + self.config["collision_reward"] * self.vehicle.crashed
+        reward = reward if self.vehicle.on_road else self.config["collision_reward"]
+        return utils.lmap(reward, [self.config["collision_reward"], 1], [0, 1])
 
 
     def _is_terminal(self) -> bool:
