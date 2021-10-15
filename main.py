@@ -67,8 +67,8 @@ class opts(object):
 
         # DQN Hyperparameters
         self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')
-        self.parser.add_argument('--epsilon_decay', default=1, type=float, help='Decay Ratio of Epsilon')
-        self.parser.add_argument('--min_epsilon', default=1, type=float, help='Minimum Value of Epsilon')
+        self.parser.add_argument('--epsilon_decay', default=0.9995, type=float, help='Decay Ratio of Epsilon')
+        self.parser.add_argument('--min_epsilon', default=0.1, type=float, help='Minimum Value of Epsilon')
         self.parser.add_argument('--dqn_gamma', default=0.99, type=float, help='Frequency of Updating Target Model')
         self.parser.add_argument('--update_freq', default=20, type=int, help='Frequency of Updating Target Model')
         self.parser.add_argument('--replay_size', default=10000, type=int, help='Size of the Replay Memory Buffer')
