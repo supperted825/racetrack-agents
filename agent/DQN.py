@@ -50,6 +50,10 @@ class DQNAgent(object):
         #     write = csv.writer(file)
         #     write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
+        with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
+            for k, v in sorted(opt.items()):
+                file.write('  %s: %s\n' % (str(k), str(v)))
+
 
     def write_log(self, step, **logs):
         """Write Episode Information to Tensorboard"""

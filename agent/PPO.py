@@ -69,6 +69,10 @@ class PPOAgent():
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
                 write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward'])
+            
+            with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
+                for k, v in sorted(opt.items()):
+                    file.write('  %s: %s\n' % (str(k), str(v)))
 
 
     def create_actor(self, opt):
