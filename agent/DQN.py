@@ -63,7 +63,7 @@ class DQNAgent(object):
                 tf.summary.scalar(name, value, step=step)
                 self.writer.flush()
         
-        # line = [step] +  [value for value in logs.values()]
+        # line = [step] + [value for value in logs.values()]
         # with open(self.logdir + '/log.csv', 'a', newline ='') as file:
         #     write = csv.writer(file)
         #     write.writerow(line)

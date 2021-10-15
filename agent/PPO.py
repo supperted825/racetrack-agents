@@ -160,7 +160,7 @@ class PPOAgent():
 
     def write_log(self, step, **logs):
         """Write Episode Information to CSV File"""
-        line = [step] +  [value for value in logs.values()]
+        line = [step] + [value for value in logs.values()]
         with open(self.logdir + '/log.csv', 'a', newline ='') as file:
             write = csv.writer(file)
             write.writerow(line)
