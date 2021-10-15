@@ -3,11 +3,11 @@ from gym.wrappers import Monitor
 from racetrack_env import RaceTrackEnv, RaceTrackEnv2
 
 import argparse
-import datetime
 import numpy as np
 import tensorflow.keras as keras
 
 import os
+import gym
 import glob
 import subprocess
 import matplotlib.cm as cm
@@ -41,7 +41,7 @@ class opts(object):
         # Configuration Settings
         self.parser.add_argument('--mode', default='train', help='Train or Test')
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
-        self.parser.add_argument('--debug', action='store_true', help='Use HighwayEnv Implementation for Testing')
+        self.parser.add_argument('--debug', default=2, type=int, help='Test Algo with (1) HighwayEnv Implementation, (2) OpenAI Gym')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
         self.parser.add_argument('--save_video', action='store_true', help='Saves Env Render as Video')
@@ -52,11 +52,11 @@ class opts(object):
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
         # Problem Space Settings
-        self.parser.add_argument('--obs_dim', default=(4,128,128), type=int, nargs=3, help='Agent Observation Space')
+        self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
 
         # Experiment Settings
-        self.parser.add_argument('--num_episodes', default=100, type=int, help='Number of Episodes to Train')
+        self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
         self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
@@ -121,7 +121,7 @@ def trainDQN(env, agent, num_episodes, opt):
     for episode in tqdm(range(1, num_episodes + 1)):
 
         episode_reward = 0
-        obs = env.reset()
+        obs = env.reset() if not opt.debug == 2 else env.reset().T
         done = False
 
         while not done:
@@ -140,6 +140,8 @@ def trainDQN(env, agent, num_episodes, opt):
             episode_reward += reward
 
             # Update Replay Memory & Train Agent Model
+            if opt.debug == 2:
+                new_obs = new_obs.T
             agent.update_replay((obs, action_idx, reward, new_obs, done))
             agent.train(done)
 
@@ -182,7 +184,7 @@ def trainPPO(env, agent, num_episodes, opt=None):
     for episode in tqdm(range(1, num_episodes + 1)):
 
         episode_reward = 0
-        obs = env.reset()
+        obs = env.reset() if not opt.debug == 2 else env.reset().T
         done = False
 
         while not done:
@@ -193,6 +195,8 @@ def trainPPO(env, agent, num_episodes, opt=None):
             episode_reward += reward
 
             # Update Replay Memory
+            if opt.debug == 2:
+                obs = obs.T 
             agent.update_replay(obs, action, reward, done)
         
         # Train Agent & Clear Replay Memory
@@ -222,7 +226,17 @@ if __name__ == "__main__":
     # Parse Arguments
     opt = opts().parse()
     print(opt)
-    env = RaceTrackEnv2(opt) if opt.debug else RaceTrackEnv(opt)
+
+    # Set up Environment According to Debug Mode
+    if opt.debug == 1:
+        env = RaceTrackEnv2(opt)
+    elif opt.debug == 2:
+        env = gym.make("CarRacing-v0")
+        opt.obs_dim = [3, 96, 96]
+        opt.num_actions = 3
+    else:
+        env = RaceTrackEnv(opt)
+
     agent = GET_AGENT[opt.agent](opt=opt)
 
     # For Recording or Visualisation
