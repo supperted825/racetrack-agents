@@ -51,7 +51,8 @@ class DQNAgent(object):
         #     write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
         with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
-            for k, v in sorted(opt.items()):
+            args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
+            for k, v in sorted(args.items()):
                 file.write('  %s: %s\n' % (str(k), str(v)))
 
 
