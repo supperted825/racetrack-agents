@@ -22,6 +22,7 @@ def DoubleConv256(obs_shape):
 
     return model
 
+
 def ConvLSTM(obs_shape):
 
     model = Sequential()
@@ -42,13 +43,24 @@ def ConvLSTM(obs_shape):
     model.add(LSTM(256, return_sequences=True))
     model.add(Flatten())
 
+
+def MLP(obs_shape):
+
+    model = Sequential()
+
+    model.add(Permute((3,2,1), input_shape=obs_shape))
+    model.add(Flatten())
+    model.add(Dense(256, activation='relu'))
+    model.add(Dense(256, activation='relu'))
+
     return model
 
 # For Retrieval of Architectures
 
 model_factory = {
     "DoubleConv256" : DoubleConv256,
-    "ConvLSTM"      : ConvLSTM
+    "ConvLSTM"      : ConvLSTM,
+    "MLP"           : MLP
 }
 
 def get_model(opt):
