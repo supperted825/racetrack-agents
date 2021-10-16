@@ -61,9 +61,9 @@ class opts(object):
         self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
-        self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
+        self.parser.add_argument('--lr', default=5e-5, type=float, help='Policy Learning Rate')
         self.parser.add_argument('--batch_size', default=64, type=int, help='Policy Update Batch Size')
-        self.parser.add_argument('--num_epochs', default=10, type=int, help='Num Epochs for Policy Gradient')
+        self.parser.add_argument('--num_epochs', default=5, type=int, help='Num Epochs for Policy Gradient')
 
         # DQN Hyperparameters
         self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')
@@ -81,6 +81,7 @@ class opts(object):
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
         self.parser.add_argument('--target_alpha', default=0.9, type=float, help='Target Network Update Coefficient')
         self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
+        self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
 
     def parse(self, args=''):
         if args == '':
@@ -201,7 +202,7 @@ def trainPPO(env, agent, num_episodes, opt=None):
         
         # Train Agent & Clear Replay Memory
         agent.train()
-        agent.replay_memory.clear()
+        agent.clear_memory()
         
         # Log Episode Rewards
         rewards.append(episode_reward)
