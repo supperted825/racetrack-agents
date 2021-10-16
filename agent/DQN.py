@@ -41,14 +41,14 @@ class DQNAgent(object):
 
         # Logging
         time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-        self.writer = tf.summary.create_file_writer(logdir=f"logs/{self.name}-{time}")
+        # self.writer = tf.summary.create_file_writer(logdir=f"logs/{self.name}-{time}")
 
-        # self.logdir = f"logs/{self.name}-{time}"
-        # os.mkdir(self.logdir)
+        self.logdir = f"logs/{self.name}-{time}"
+        os.mkdir(self.logdir)
 
-        # with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
-        #     write = csv.writer(file)
-        #     write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+        with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
+            write = csv.writer(file)
+            write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
         with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
             args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
@@ -58,15 +58,16 @@ class DQNAgent(object):
 
     def write_log(self, step, **logs):
         """Write Episode Information to Tensorboard"""
-        with self.writer.as_default():
-            for name, value in logs.items():
-                tf.summary.scalar(name, value, step=step)
-                self.writer.flush()
+        # with self.writer.as_default():
+        #     for name, value in logs.items():
+        #         tf.summary.scalar(name, value, step=step)
+        #         self.writer.flush()
         
-        # line = [step] + [value for value in logs.values()]
-        # with open(self.logdir + '/log.csv', 'a', newline ='') as file:
-        #     write = csv.writer(file)
-        #     write.writerow(line)
+        """Write Episode Information to CSV File"""
+        line = [step] + [value for value in logs.values()]
+        with open(self.logdir + '/log.csv', 'a', newline ='') as file:
+            write = csv.writer(file)
+            write.writerow(line)
 
 
     def create_model(self, opt):
