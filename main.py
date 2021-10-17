@@ -61,9 +61,9 @@ class opts(object):
         self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
-        self.parser.add_argument('--lr', default=5e-5, type=float, help='Policy Learning Rate')
+        self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
         self.parser.add_argument('--batch_size', default=64, type=int, help='Policy Update Batch Size')
-        self.parser.add_argument('--num_epochs', default=5, type=int, help='Num Epochs for Policy Gradient')
+        self.parser.add_argument('--num_epochs', default=10, type=int, help='Num Epochs for Policy Gradient')
 
         # DQN Hyperparameters
         self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')

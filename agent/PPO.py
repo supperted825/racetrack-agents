@@ -87,6 +87,7 @@ class PPOAgent():
 
 
     def create_actor(self, opt):
+        """Construct Actor Neural Network"""
 
         # Define Model Inputs
         obs = Input(shape=opt.obs_dim)
@@ -115,6 +116,7 @@ class PPOAgent():
 
 
     def create_critic(self, opt):
+        """Construct Critic with Similar Backbone as Actor"""
 
         # Retrieve Model Backbone from Model File
         model = get_model(opt)
