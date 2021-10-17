@@ -70,6 +70,7 @@ class PPOAgent():
             self.total_steps = 0
             self.best = 0
             self.num_updates = 0
+            self.kl_div = 0
             self.replay_memory = {
                 "obss" : [], "acts" : [], "rews" : [], "vals" : [], "prbs" : [], "mask" : []}
 
@@ -236,7 +237,7 @@ class PPOAgent():
         # For Logging of Agent Performance
         ep_rewards = []
         ep_lengths = []
-        rollout_steps = self.batch_size #* 12
+        rollout_steps = self.batch_size * 12
         num_steps = 0
 
         while num_steps < rollout_steps:
@@ -274,11 +275,13 @@ class PPOAgent():
         min_reward = np.min(ep_rewards)
         max_reward = np.max(ep_rewards)
 
-        # Give Some 
+        # Show Training Progress on Console
+        print(80* "-")
         print("Total Steps: ", self.total_steps)
         print("Average Reward: ", avg_reward)
         print("Average Episode Length: ", avg_ep_len)
         print("Num. Model Updates: ", self.num_updates)
+        print("Previous KL Div: ", self.kl_div)
 
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
 
@@ -320,7 +323,7 @@ class PPOAgent():
         # Process Returns & Advantages for Buffer Info
         buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
 
-        for batch_idx in tqdm(range(0, len(buffer_obss), self.batch_size)): 
+        for batch_idx in range(0, len(buffer_obss), self.batch_size): 
 
             # Go Through Buffer Batch Size at a Time
             obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
@@ -340,10 +343,10 @@ class PPOAgent():
 
                 # Stop Training Early if KL Divergence Exceeds Threshold
                 log_ratio = np.exp(log_probs - prbs)
-                kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
+                self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
 
-                if self.TARGET_KL != None and kl_div > self.TARGET_KL:
-                    print(f"Early stopping at epoch {epoch} due to reaching max kl: {kl_div:.2f}")
+                if self.TARGET_KL != None and self.kl_div > self.TARGET_KL:
+                    print(f"Early stopping at epoch {epoch} due to reaching max kl: {self.kl_div:.2f}")
                     break
 
                 # Train Actor & Critic
