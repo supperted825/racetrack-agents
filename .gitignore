@@ -2,7 +2,9 @@ videos/
 models/
 logs/
 pbslogs/
+racetrack_ppo/
 jobscripts/
+test.py
 *.o*
 *.pbs
 *.DS_Store
