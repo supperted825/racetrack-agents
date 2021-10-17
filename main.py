@@ -176,52 +176,6 @@ def trainDQN(env, agent, num_episodes, opt):
         """
 
 
-def trainPPO(env, agent, num_episodes, opt=None):
-
-    """Training Sequence for PPO"""
-
-    rewards, best = [], 0
-
-    for episode in tqdm(range(1, num_episodes + 1)):
-
-        episode_reward = 0
-        obs = env.reset() if not opt.debug == 2 else env.reset().T
-        done = False
-
-        while not done:
-
-            # Get Action & Step Environment
-            action = agent.act(obs)
-            obs, reward, done, _ = env.step(action)
-            episode_reward += reward
-
-            # Update Replay Memory
-            if opt.debug == 2:
-                obs = obs.T 
-            agent.update_replay(obs, action, reward, done)
-        
-        # Train Agent & Clear Replay Memory
-        agent.train()
-        agent.clear_memory()
-        
-        # Log Episode Rewards
-        rewards.append(episode_reward)
-        print(episode_reward)
-        
-        # For Logging Interval, Extract Average, Lowest, Best Reward Attained
-        if episode % opt.log_freq == 0 or episode == 1:
-            avg_reward = np.mean(rewards[-opt.log_freq:])
-            min_reward = np.min(rewards[-opt.log_freq:])
-            max_reward = np.max(rewards[-opt.log_freq:])
-            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward)
-
-            # Save Model if Average Reward is Greater than a Minimum & Better than Before
-            if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
-                best = avg_reward
-                agent.actor.save(f'models/{agent.name}_actor_best.model')
-                agent.critic.save(f'models/{agent.name}_critic_best.model')
-
-
 if __name__ == "__main__":
     
     # Parse Arguments
@@ -249,7 +203,9 @@ if __name__ == "__main__":
         if opt.agent in ["DQN", "CDQN"]:
             trainDQN(env, agent, int(opt.num_episodes), opt)
         else:
-            trainPPO(env, agent, int(opt.num_episodes), opt)
+            while agent.total_steps < 200 * opt.num_episodes:
+                agent.collect_rollout(env, opt=opt)
+                agent.train()
 
     else:
         

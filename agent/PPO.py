@@ -65,8 +65,11 @@ class PPOAgent():
             self.target_actor = self.create_actor(opt)
             self.target_actor.set_weights(self.actor.get_weights())
 
-            # Experience Replay Buffer
-            self.replay_memory = {"obss" : [], "acts" : [], "rews":[], "mask" : []}
+            # Variables to Track Training Progress & Experience Replay Buffer
+            self.total_steps = 0
+            self.best = 0
+            self.replay_memory = {
+                "obss" : [], "acts" : [], "rews" : [], "vals" : [], "prbs" : [], "mask" : []}
 
             # For Manual Logging (TensorBoard doesn't work with Eager Execution Disabled)
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
@@ -75,7 +78,7 @@ class PPOAgent():
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
-                write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward'])
+                write.writerow(['Total Steps', 'Avg Reward', 'Min Reward', 'Max Reward', 'Avg Ep Length'])
             
             with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
                 args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
@@ -175,37 +178,36 @@ class PPOAgent():
             self.replay_memory[key] = []
 
 
-    def update_replay(self, obs, act, rew, done):
+    def update_replay(self, obs, act, rew, val, prb, done):
         """Record Stepwise Episode Information with Critic Output"""
         self.replay_memory["obss"].append(obs)
         self.replay_memory["acts"].append(act)
         self.replay_memory["rews"].append(rew)
+        self.replay_memory["vals"].append(val)
+        self.replay_memory["prbs"].append(prb)
         self.replay_memory["mask"].append(0 if done else 1)
     
 
-    def process_episode(self, mem):
+    def process_replay(self, mem):
         """Process Espisode Information for Value & Advantages"""
-
-        # Get Latest Value Estimations from Critic
-        vals = self.critic.predict_on_batch(np.array(mem["obss"])/255)
-        vals = vals.flatten()
 
         # If Last Entry is Terminal State, Use Reward else V(s)
         if mem["mask"][-1] == 1:
             last_val = mem["rews"][-1]
         else:
-            last_val = vals[-1]
+            last_val = mem["vals"][-1]
         
         g = self.GAE_GAMMA
         l = self.GAE_LAMBDA
 
         # Initialise Return Arrays with Appropriate Shapes
-        obss = np.empty((len(vals), *self.obs_dim))
-        acts = np.empty((len(vals), self.num_actions))
-        advs = np.empty((len(vals),))
-        rets = np.empty((len(vals),))
+        obss = np.empty((len(mem["obss"]), *self.obs_dim))
+        acts = np.empty((len(mem["acts"]), self.num_actions))
+        advs = np.empty((len(mem["advs"]),))
+        rets = np.empty((len(mem["rets"]),))
+        prbs = np.array(mem["prbs"])
 
-        for idx, value in enumerate(vals[::-1]):
+        for idx, value in enumerate(mem["vals"][::-1]):
             reward = mem["rews"][idx]
             mask = mem["mask"][idx]
 
@@ -221,7 +223,61 @@ class PPOAgent():
 
             last_val = value if mask == 1 else ret
 
-        return obss, acts, advs, rets
+        return obss, acts, advs, rets, prbs
+
+
+    def collect_rollout(self, env, opt):
+        """Collect Experiences from Environment for Training"""
+        
+        # For Logging of Agent Performance
+        ep_rewards = []
+        ep_lengths = []
+        total_steps = 12 * self.batch_size
+        num_steps = 0
+
+        while num_steps < total_steps:
+
+            steps, done = 0, False
+            obs = env.reset() if not opt.debug == 2 else env.reset().T
+            ep_reward = 0
+            ep_length = 0
+
+            while not done:
+
+                # Get Action & Step Environment
+                value, action, log_prob = self.evaluate(obs)
+                obs, reward, done, _ = env.step(action)
+
+                # Update Replay Memory
+                if opt.debug == 2:
+                    obs = obs.T 
+                self.update_replay(obs, action, reward, value, log_prob, done)
+
+                # Increment Step Counters
+                steps += 1
+                num_steps += 1
+                if num_steps == total_steps:
+                    break
+        
+            ep_lengths.append(ep_length)
+            ep_rewards.append(ep_reward)
+            self.total_steps += total_steps
+
+        # Log Memory Buffer Information & Write to CSV
+        avg_ep_len = np.mean(ep_lengths)
+        avg_reward = np.mean(ep_rewards)
+        min_reward = np.min(ep_rewards)
+        max_reward = np.max(ep_rewards)
+
+        self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
+
+        # Save Model if Average Reward is Greater than a Minimum & Better than Before
+        if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
+            self.best = avg_reward
+            self.actor.save(f'models/{self.name}_actor_best.model')
+            self.critic.save(f'models/{self.name}_critic_best.model')
+        
+        return ep_rewards, ep_lengths
 
 
     def act(self, obs, optimal=False):
@@ -233,62 +289,59 @@ class PPOAgent():
             action = [random.gauss(mu,self.ACTOR_SIGMA) for mu in mus]
         return action
 
-    
-    def evaluate(self, obs, acts):
-        """Produce Values & Log Probabilties for Model Update"""
+
+    def evaluate(self, obs):
+        """Produce Actions, Values & Log Probabilties for Given Observation"""
 
         # Pull Outputs from Each Model
-        vals = self.critic.predict_on_batch(np.array(obs/255))
-        mus = self.target_actor.predict_on_batch([obs/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        vals = self.critic.predict_on_batch(np.array([obs/255]))
+        acts = self.target_actor.predict_on_batch([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
 
         # Calculate Log Probabilities of Each Action
-        dist = tfd.MultivariateNormalDiag(mus, self.cov_mat)
+        dist = tfd.MultivariateNormalDiag(acts, self.cov_mat)
         log_probs = dist.log_prob(acts).eval(session=tf.compat.v1.Session())
 
-        return vals, log_probs
+        return vals, acts, log_probs
 
     def train(self):
-        
+        """Train Agent by Consuming Collected Memory Buffer"""
+
         # Process Returns & Advantages for Buffer Info
-        ep_obss, ep_acts, ep_advs, ep_rets = self.process_episode(self.replay_memory)
+        buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
 
-        # Calculate Initial Log Probs for Early Stopping
-        _, ep_log_probs = self.evaluate(ep_obss, ep_acts)
+        for batch_idx in range(0, len(buffer_obss), self.batch_size): 
 
-        # Sample Batch of Batch Size from Episode Steps
-        batch_idx = np.random.randint(len(ep_obss), size=self.batch_size)
+            # Go Through Buffer Batch Size at a Time
+            obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
+            acts = buffer_acts[batch_idx:batch_idx + self.batch_size]
+            advs = buffer_advs[batch_idx:batch_idx + self.batch_size]
+            rets = buffer_rets[batch_idx:batch_idx + self.batch_size]
+            prbs = buffer_prbs[batch_idx:batch_idx + self.batch_size]
 
-        obss = ep_obss[batch_idx]
-        acts = ep_acts[batch_idx]
-        advs = ep_advs[batch_idx]
-        rets = ep_rets[batch_idx]
+            # Normalise Advantages & Reshape as a Single Batch
+            advs = (advs - advs.mean()) / (advs.std() + 1e-10)
+            advs = np.expand_dims(advs,axis=1)
 
-        ref_log_probs = ep_log_probs[batch_idx]
+            for epoch in range(self.epochs):
 
-        # Normalise Advantages & Reshape as a Single Batch
-        advs = (advs - advs.mean()) / (advs.std() + 1e-10)
-        advs = np.expand_dims(advs,axis=1)
+                # Evaluate Current ("Old") Policy by Getting Values & Log Probs
+                _, log_probs = self.evaluate(obss, acts)
 
-        for epoch in range(self.epochs):
+                # Stop Training Early if KL Divergence Exceeds Threshold
+                log_ratio = np.exp(log_probs - prbs)
+                kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
 
-            # Evaluate Current ("Old") Policy by Getting Values & Log Probs
-            _, log_probs = self.evaluate(obss, acts)
+                if self.TARGET_KL != None and kl_div > self.TARGET_KL:
+                    print(f"Early stopping at epoch {epoch} due to reaching max kl: {kl_div:.2f}")
+                    break
 
-            # Stop Training Early if KL Divergence Exceeds Threshold
-            log_ratio = np.exp(log_probs - ref_log_probs)
-            kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
+                # Train Actor & Critic
+                self.actor.fit(x=[obss/255, advs], y=acts, batch_size=self.batch_size, verbose=1)
+                self.critic.fit(x=obss/255, y=rets, batch_size=self.batch_size, verbose=0)
 
-            if self.TARGET_KL != None and kl_div > self.TARGET_KL:
-                print(f"Early stopping at epoch {epoch} due to reaching max kl: {kl_div:.2f}")
-                break
-
-            # Train Actor & Critic
-            self.actor.fit(x=[obss/255, advs], y=acts, batch_size=self.batch_size, verbose=1)
-            self.critic.fit(x=obss/255, y=rets, batch_size=self.batch_size, verbose=0)
-
-            # Soft-Update Target Network
-            actor_weights = np.array(self.actor.get_weights(), dtype=object)
-            target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
-            new_weights = self.TARGET_ALPHA * actor_weights \
-                            + (1-self.TARGET_ALPHA) * target_actor_weights
-            self.target_actor.set_weights(new_weights)
+                # Soft-Update Target Network
+                actor_weights = np.array(self.actor.get_weights(), dtype=object)
+                target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
+                new_weights = self.TARGET_ALPHA * actor_weights \
+                                + (1-self.TARGET_ALPHA) * target_actor_weights
+                self.target_actor.set_weights(new_weights)
