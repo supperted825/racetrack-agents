@@ -13,9 +13,10 @@ tfd = tfp.distributions
 import os
 import csv
 import random
-import tqdm
 import numpy as np
 import datetime
+
+from tqdm import tqdm
 
 from .models import get_model
 
@@ -205,9 +206,9 @@ class PPOAgent():
 
         # Initialise Return Arrays with Appropriate Shapes
         obss = np.empty((len(mem["obss"]), *self.obs_dim))
-        acts = np.empty((len(mem["acts"]), self.num_actions))
-        advs = np.empty((len(mem["advs"]),))
-        rets = np.empty((len(mem["rets"]),))
+        acts = np.empty((len(mem["obss"]), self.num_actions))
+        advs = np.empty((len(mem["obss"]),))
+        rets = np.empty((len(mem["obss"]),))
         prbs = np.array(mem["prbs"])
 
         for idx, value in enumerate(mem["vals"][::-1]):
@@ -235,15 +236,14 @@ class PPOAgent():
         # For Logging of Agent Performance
         ep_rewards = []
         ep_lengths = []
-        total_steps = 12 * self.batch_size
+        rollout_steps = self.batch_size #* 12
         num_steps = 0
 
-        while num_steps < total_steps:
+        while num_steps < rollout_steps:
 
             steps, done = 0, False
             obs = env.reset() if not opt.debug == 2 else env.reset().T
             ep_reward = 0
-            ep_length = 0
 
             while not done:
 
@@ -259,12 +259,14 @@ class PPOAgent():
                 # Increment Step Counters
                 steps += 1
                 num_steps += 1
-                if num_steps == total_steps:
+                ep_reward += reward
+                if num_steps == rollout_steps:
                     break
         
-            ep_lengths.append(ep_length)
+            ep_lengths.append(steps)
             ep_rewards.append(ep_reward)
-            self.total_steps += total_steps
+        
+        self.total_steps += rollout_steps
 
         # Log Memory Buffer Information & Write to CSV
         avg_ep_len = np.mean(ep_lengths)
@@ -303,8 +305,8 @@ class PPOAgent():
         """Produce Actions, Values & Log Probabilties for Given Observation"""
 
         # Pull Outputs from Each Model
-        vals = self.critic.predict_on_batch(np.array([obs/255]))
-        acts = self.target_actor.predict_on_batch([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        vals = self.critic.predict(np.array([obs/255]))
+        acts = self.target_actor.predict([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
 
         # Calculate Log Probabilities of Each Action
         dist = tfd.MultivariateNormalDiag(acts, self.cov_mat)
@@ -334,7 +336,7 @@ class PPOAgent():
             for epoch in range(self.epochs):
 
                 # Evaluate Current ("Old") Policy by Getting Values & Log Probs
-                _, log_probs = self.evaluate(obss, acts)
+                _, _, log_probs = self.evaluate(obss[0])
 
                 # Stop Training Early if KL Divergence Exceeds Threshold
                 log_ratio = np.exp(log_probs - prbs)
@@ -345,7 +347,7 @@ class PPOAgent():
                     break
 
                 # Train Actor & Critic
-                self.actor.fit(x=[obss/255, advs], y=acts, batch_size=self.batch_size, verbose=1)
+                self.actor.fit(x=[obss/255, advs], y=acts, batch_size=self.batch_size, verbose=0)
                 self.critic.fit(x=obss/255, y=rets, batch_size=self.batch_size, verbose=0)
 
                 # Soft-Update Target Network
@@ -356,3 +358,5 @@ class PPOAgent():
                 self.target_actor.set_weights(new_weights)
 
                 self.num_updates += 1
+        
+        self.clear_memory()
