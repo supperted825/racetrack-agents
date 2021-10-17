@@ -1,7 +1,6 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
-from tensorflow.python.framework.op_def_library import value_to_attr_value
 from tensorflow.python.framework.ops import disable_eager_execution
 
 import tensorflow as tf
@@ -14,6 +13,7 @@ tfd = tfp.distributions
 import os
 import csv
 import random
+import tqdm
 import numpy as np
 import datetime
 
@@ -68,6 +68,7 @@ class PPOAgent():
             # Variables to Track Training Progress & Experience Replay Buffer
             self.total_steps = 0
             self.best = 0
+            self.num_updates = 0
             self.replay_memory = {
                 "obss" : [], "acts" : [], "rews" : [], "vals" : [], "prbs" : [], "mask" : []}
 
@@ -271,6 +272,12 @@ class PPOAgent():
         min_reward = np.min(ep_rewards)
         max_reward = np.max(ep_rewards)
 
+        # Give Some 
+        print("Total Steps: ", self.total_steps)
+        print("Average Reward: ", avg_reward)
+        print("Average Episode Length: ", avg_ep_len)
+        print("Num. Model Updates: ", self.num_updates)
+
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
 
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
@@ -311,7 +318,7 @@ class PPOAgent():
         # Process Returns & Advantages for Buffer Info
         buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
 
-        for batch_idx in range(0, len(buffer_obss), self.batch_size): 
+        for batch_idx in tqdm(range(0, len(buffer_obss), self.batch_size)): 
 
             # Go Through Buffer Batch Size at a Time
             obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
@@ -347,3 +354,5 @@ class PPOAgent():
                 new_weights = self.TARGET_ALPHA * actor_weights \
                                 + (1-self.TARGET_ALPHA) * target_actor_weights
                 self.target_actor.set_weights(new_weights)
+
+                self.num_updates += 1
