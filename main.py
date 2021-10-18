@@ -214,14 +214,16 @@ if __name__ == "__main__":
         
         if opt.agent in ["DQN", "CDQN"]:
             for _ in range(200):
-                action_idx = np.argmax(model.predict(np.array([obs])/255)[0])
-                obs, reward, done, info = env.step(DISCRETE_ACTION_SPACE[action_idx])
+                action_idx = model.predict(np.array([obs])/255)[0]
+                action_idx = np.argmax(action_idx)
+                obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
+                                                SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
                 total_reward += reward
-            print(total_reward)
+            print("Total Reward: ", total_reward)
 
         else:
             for _ in range(200):
-                action = agent.get_qvalues(obs)
+                action = model.predict(np.array([obs])/255)[0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward
-            print(total_reward)
+            print("Total Reward: ", total_reward)
