@@ -162,7 +162,7 @@ def trainDQN(env, agent, num_episodes, opt):
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
                 best = avg_reward
-                agent.model.save(f'models/{agent.name}_last.model')
+                agent.model.save(f'models/{agent.name}_best.model')
 
         # Decay Epsilon
         if epsilon > opt.min_epsilon:
