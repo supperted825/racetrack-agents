@@ -71,6 +71,7 @@ class DQNAgent(object):
 
 
     def create_model(self, opt):
+        """Create Model Neural Network, Common Between Main & Target Models"""
 
         # Retrieve Model Backbone from Model File
         model = get_model(opt)
@@ -93,14 +94,17 @@ class DQNAgent(object):
 
 
     def update_replay(self, item):
+        """Append Experience Step to the Replay Buffer"""
         self.replay_memory.append(item)
 
 
     def get_qvalues(self, state):
-        return self.model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
+        """Get Q Value Outputs from Target Model"""
+        return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
 
 
     def train(self, terminal_state):
+        """Training Sequence for DQN Agent"""
 
         # Don't Train Unless Sufficient Data
         if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
@@ -113,7 +117,7 @@ class DQNAgent(object):
         current_qvalues = self.model.predict(current_states)
 
         new_current_states = np.array([item[3] for item in minibatch])/255
-        future_qvalues = self.target_model.predict(new_current_states)
+        future_qvalues = self.model.predict(new_current_states)
 
         x, y = [], []
 
@@ -125,7 +129,7 @@ class DQNAgent(object):
             else:
                 new_qvalue = reward
 
-            # Update Target Q Value for this State
+            # Update Target Q Value for this Action for this Entry
             current_qvalue = current_qvalues[index]
             current_qvalue[action] = new_qvalue
 
@@ -167,6 +171,7 @@ class CDQNAgent(DQNAgent):
 
         for index, (current_state, action, reward, _, done) in enumerate(minibatch):
             if not done:
+                # Minimum of New Q Values is Used for the Future Q Value
                 model_maxq = np.max(new_current_qvalues[index])
                 target_model_maxq = np.max(new_future_qvalues[index])
                 new_qvalue = reward + self.GAMMA * np.min([model_maxq, target_model_maxq])
