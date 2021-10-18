@@ -54,11 +54,9 @@ class PPOAgent():
             self.TARGET_KL = opt.target_kl
             self.ACTOR_SIGMA = opt.actor_sigma
 
-            # Placeholder Variables for Prediction & Training
+            # Placeholder Variable for Prediction & Training
             self.ADV_PLACEHOLDER = np.zeros((1, 1))
-            self.cov_var = np.full((self.num_actions,), fill_value=self.ACTOR_SIGMA, dtype='float32')
-            self.cov_mat = np.diag(self.cov_var)
-
+            
             # Instantiate Models & Replay Buffer
             self.actor = self.create_actor(opt)
             self.critic = self.create_critic(opt)
@@ -151,10 +149,10 @@ class PPOAgent():
             """Calculate Clipped Loss According to https://arxiv.org/pdf/1707.06347.pdf"""
 
             # Get Old & New Distributions & Log Probabilities of Buffer Actions
-            new_dist = tfd.MultivariateNormalDiag(y_pred, self.cov_mat)
+            new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
             new_log_probs = new_dist.log_prob(y_true)
 
-            old_dist = tfd.MultivariateNormalDiag(y_true, self.cov_mat)
+            old_dist = tfd.Normal(y_true, self.ACTOR_SIGMA)
             old_log_probs = new_dist.log_prob(y_true)
 
             # Calculate Ratio Between Old & New Policy
@@ -187,24 +185,25 @@ class PPOAgent():
             self.replay_memory[key] = []
 
 
-    def update_replay(self, obs, act, rew, val, prb, done):
+    def update_replay(self, obs, act, rew, done):
         """Record Stepwise Episode Information with Critic Output"""
         self.replay_memory["obss"].append(obs)
         self.replay_memory["acts"].append(act)
         self.replay_memory["rews"].append(rew)
-        self.replay_memory["vals"].append(val)
-        self.replay_memory["prbs"].append(prb)
         self.replay_memory["mask"].append(0 if done else 1)
     
 
     def process_replay(self, mem):
         """Process Espisode Information for Value & Advantages"""
 
+        # Calculate Values & Log Probs
+        vals, prbs = self.evaluate(mem["obss"], mem["acts"])
+
         # If Last Entry is Terminal State, Use Reward else V(s)
         if mem["mask"][-1] == 1:
             last_val = mem["rews"][-1]
         else:
-            last_val = mem["vals"][-1]
+            last_val = vals[-1]
         
         g = self.GAE_GAMMA
         l = self.GAE_LAMBDA
@@ -214,9 +213,8 @@ class PPOAgent():
         acts = np.empty((len(mem["obss"]), self.num_actions))
         advs = np.empty((len(mem["obss"]),))
         rets = np.empty((len(mem["obss"]),))
-        prbs = np.array(mem["prbs"])
 
-        for idx, value in enumerate(mem["vals"][::-1]):
+        for idx, value in enumerate(vals[::-1]):
             reward = mem["rews"][idx]
             mask = mem["mask"][idx]
 
@@ -253,13 +251,13 @@ class PPOAgent():
             while not done:
 
                 # Get Action & Step Environment
-                value, action, log_prob = self.evaluate(obs)
+                action = self.act(obs)
                 obs, reward, done, _ = env.step(action)
 
                 # Update Replay Memory
                 if opt.debug == 2:
                     obs = obs.T 
-                self.update_replay(obs, action, reward, value, log_prob, done)
+                self.update_replay(obs, action, reward, done)
 
                 # Increment Step Counters
                 steps += 1
@@ -298,33 +296,26 @@ class PPOAgent():
         return ep_rewards, ep_lengths
 
 
-    def act(self, obs, optimal=False):
-        """Act on Parameterised Normal Distribution"""
-        mus = self.target_actor.predict([obs.reshape(1,*obs.shape)/255, self.ADV_PLACEHOLDER])[0]
-        if optimal:
-            action = [mu for mu in mus]
-        else:
-            action = [random.gauss(mu,self.ACTOR_SIGMA) for mu in mus]
-        return action
+    def act(self, obs):
+        """Get Optimal Action from Target Actor"""
+        return self.target_actor.predict_on_batch([[obs/255], self.ADV_PLACEHOLDER])
+    
 
-
-    def evaluate(self, obs, mode="single"):
-        """Produce Actions, Values & Log Probabilties for Given Observation"""
+    def evaluate(self, obss, acts=None):
+        """Produce Values & Log Probabilties for Given Batch of Observations"""
 
         # Pull Outputs from Each Model
-        if mode == "batch":
-            vals = self.critic.predict_on_batch(np.array(obs/255))
-            acts = self.target_actor.predict_on_batch([obs/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
-        
-        if mode == "single":
-            vals = self.critic.predict_on_batch(np.array([obs/255]))
-            acts = self.target_actor.predict_on_batch([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        vals = self.critic.predict(np.array(obss)/255)
+        if acts == None:
+            acts = self.target_actor.predict([obss/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        else:
+            acts = np.expand_dims(np.array(acts).flatten(), axis=1)
 
         # Calculate Log Probabilities of Each Action
-        dist = tfd.MultivariateNormalDiag(acts, self.cov_mat)
+        dist = tfd.Normal(np.array(acts), self.ACTOR_SIGMA)
         log_probs = dist.log_prob(acts).eval(session=tf.compat.v1.Session())
 
-        return vals, acts, log_probs
+        return vals, log_probs
 
 
     def train(self):
@@ -349,11 +340,12 @@ class PPOAgent():
             for epoch in range(self.epochs):
                 
                 # Compute KL Divergence with Log Ratio for Early Stopping
-
-                _, _, log_probs = self.evaluate(obss, mode="batch")
+                _, log_probs = self.evaluate(obss)
                 
                 log_ratio = np.exp(log_probs - prbs)
                 self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
+                
+                logging.info("Epoch {}: KL Divergence of {}".format(epoch, self.kl_div))
 
                 if self.TARGET_KL != None and self.kl_div > self.TARGET_KL:
                     print(f"Early stopping at epoch {epoch} due to reaching max kl: {self.kl_div:.2f}")
