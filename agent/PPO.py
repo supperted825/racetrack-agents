@@ -304,12 +304,17 @@ class PPOAgent():
         return action
 
 
-    def evaluate(self, obs):
+    def evaluate(self, obs, mode="single"):
         """Produce Actions, Values & Log Probabilties for Given Observation"""
 
         # Pull Outputs from Each Model
-        vals = self.critic.predict(np.array([obs/255]))
-        acts = self.target_actor.predict([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        if mode == "batch":
+            vals = self.critic.predict(np.array(obs/255))
+            acts = self.target_actor.predict([obs/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+        
+        if mode == "single":
+            vals = self.critic.predict(np.array([obs/255]))
+            acts = self.target_actor.predict([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
 
         # Calculate Log Probabilities of Each Action
         dist = tfd.MultivariateNormalDiag(acts, self.cov_mat)
@@ -339,7 +344,7 @@ class PPOAgent():
             for epoch in range(self.epochs):
                 
                 # Compute KL Divergence with Log Ratio for Early Stopping
-                _, _, log_probs = self.evaluate(obss.squeeze())
+                _, _, log_probs = self.evaluate(obss.squeeze(), mode="batch")
                 
                 log_ratio = np.exp(log_probs - prbs)
                 self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
