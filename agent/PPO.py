@@ -337,11 +337,10 @@ class PPOAgent():
             advs = np.expand_dims(advs,axis=1)
 
             for epoch in range(self.epochs):
-
-                # Evaluate Current ("Old") Policy by Getting Values & Log Probs
-                _, _, log_probs = self.evaluate(obss[0])
-
-                # Stop Training Early if KL Divergence Exceeds Threshold
+                
+                # Compute KL Divergence with Log Ratio for Early Stopping
+                _, _, log_probs = self.evaluate(obss.squeeze())
+                
                 log_ratio = np.exp(log_probs - prbs)
                 self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
 
