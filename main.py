@@ -164,16 +164,16 @@ def trainDQN(env, agent, num_episodes, opt):
                 best = avg_reward
                 agent.model.save(f'models/{agent.name}_best.model')
 
+        """
         # Decay Epsilon
         if epsilon > opt.min_epsilon:
             epsilon *= opt.epsilon_decay
             epsilon = max(opt.min_epsilon, epsilon)
-
         """
+
         # Linear Epsilon Decay
         if epsilon > opt.min_epsilon:
             epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - opt.min_epsilon)
-        """
 
 
 if __name__ == "__main__":
