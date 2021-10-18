@@ -185,6 +185,7 @@ if __name__ == "__main__":
     # Set up Environment According to Debug Mode
     if opt.debug == 1:
         env = RaceTrackEnv2(opt)
+        opt.obs_dim = [2, 36, 36]
     elif opt.debug == 2:
         env = gym.make("CarRacing-v0")
         opt.obs_dim = [3, 96, 96]
