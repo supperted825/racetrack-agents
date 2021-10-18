@@ -11,12 +11,12 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 import os
+import sys
 import csv
 import random
 import numpy as np
 import datetime
-
-from tqdm import tqdm
+import logging
 
 from .models import get_model
 
@@ -78,6 +78,10 @@ class PPOAgent():
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
             self.logdir = f"logs/{self.name}-{time}"
             os.mkdir(self.logdir)
+            
+            # Python Logging Gives Easier-to-read Outputs
+            logging.basicConfig(filename=self.logdir+'/log.log', format='%(message)s', filemode='w', level = logging.DEBUG)
+            logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
@@ -139,7 +143,7 @@ class PPOAgent():
     
 
     def PPO_loss(self, advs):
-        """Custom PPO Loss, Wrapped to Feed Advantage in"""
+        """Custom PPO Loss, Wrapped to Feed Advantage In"""
         # Keras Backend must be used here as values are symbolic only.
         # Must involve y_true & y_pred inputs, otherwise model will not train.
 
@@ -276,12 +280,12 @@ class PPOAgent():
         max_reward = np.max(ep_rewards)
 
         # Show Training Progress on Console
-        print(80* "-")
-        print("Total Steps: ", self.total_steps)
-        print("Average Reward: ", avg_reward)
-        print("Average Episode Length: ", avg_ep_len)
-        print("Num. Model Updates: ", self.num_updates)
-        print("Previous KL Div: ", self.kl_div)
+        logging.info(40*"-")
+        logging.info("Total Steps: {}".format(self.total_steps))
+        logging.info("Average Reward: {}".format(avg_reward))
+        logging.info("Average Episode Length: {}".format(avg_ep_len))
+        logging.info("Num. Model Updates: {}".format(self.num_updates))
+        logging.info("Previous KL Div: {}".format(self.kl_div))
 
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
 
@@ -309,18 +313,19 @@ class PPOAgent():
 
         # Pull Outputs from Each Model
         if mode == "batch":
-            vals = self.critic.predict(np.array(obs/255))
-            acts = self.target_actor.predict([obs/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+            vals = self.critic.predict_on_batch(np.array(obs/255))
+            acts = self.target_actor.predict_on_batch([obs/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
         
         if mode == "single":
-            vals = self.critic.predict(np.array([obs/255]))
-            acts = self.target_actor.predict([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
+            vals = self.critic.predict_on_batch(np.array([obs/255]))
+            acts = self.target_actor.predict_on_batch([[obs/255], np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
 
         # Calculate Log Probabilities of Each Action
         dist = tfd.MultivariateNormalDiag(acts, self.cov_mat)
         log_probs = dist.log_prob(acts).eval(session=tf.compat.v1.Session())
 
         return vals, acts, log_probs
+
 
     def train(self):
         """Train Agent by Consuming Collected Memory Buffer"""
@@ -344,7 +349,8 @@ class PPOAgent():
             for epoch in range(self.epochs):
                 
                 # Compute KL Divergence with Log Ratio for Early Stopping
-                _, _, log_probs = self.evaluate(obss.squeeze(), mode="batch")
+
+                _, _, log_probs = self.evaluate(obss, mode="batch")
                 
                 log_ratio = np.exp(log_probs - prbs)
                 self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
