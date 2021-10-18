@@ -146,9 +146,9 @@ class PPOAgent():
         def loss(y_true, y_pred):
             """Calculate Clipped Loss According to https://arxiv.org/pdf/1707.06347.pdf"""
 
-            # Get Old & New Distributions & Log Probabilities
+            # Get Old & New Distributions & Log Probabilities of Buffer Actions
             new_dist = tfd.MultivariateNormalDiag(y_pred, self.cov_mat)
-            new_log_probs = new_dist.log_prob(y_pred)
+            new_log_probs = new_dist.log_prob(y_true)
 
             old_dist = tfd.MultivariateNormalDiag(y_true, self.cov_mat)
             old_log_probs = new_dist.log_prob(y_true)
