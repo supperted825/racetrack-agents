@@ -1,4 +1,4 @@
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
 
@@ -50,15 +50,9 @@ class PPOAgent():
             self.TARGET_KL = opt.target_kl
             self.ACTOR_SIGMA = opt.actor_sigma
 
-            # Placeholder Variable for Prediction & Training
-            self.ADV_PLACEHOLDER = np.zeros((1, 1))
-            
-            # Instantiate Models & Replay Buffer
-            self.actor = self.create_actor(opt)
-            self.critic = self.create_critic(opt)
-            
-            self.a_optimizer = Adam(learning_rate=self.lr)
-            self.c_optimizer = Adam(learning_rate=self.lr)
+            # Instantiate Model & Optimizer
+            self.policy = self.create_model(opt)
+            self.optimizer = Adam(learning_rate=self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
             self.total_steps = 0
@@ -68,7 +62,7 @@ class PPOAgent():
             self.replay_memory = {
                 "obss" : [], "acts" : [], "rews" : [], "mask" : []}
 
-            # For Manual Logging (TensorBoard doesn't work with Eager Execution Disabled)
+            # Manage Logging Properties
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
             self.logdir = f"logs/{self.name}-{time}"
             os.mkdir(self.logdir)
@@ -87,46 +81,34 @@ class PPOAgent():
                     file.write('  %s: %s\n' % (str(k), str(v)))
 
 
-    def create_actor(self, opt):
-        """Construct Actor Neural Network"""
-
+    def create_model(self, opt, fc_layers=[]):
+        """Constructs Policy Network with Shared Backbone & Actor+Critic Heads"""
+        
         # Define Model Inputs
         obs = Input(shape=opt.obs_dim)
-
-        # Retrieve Model from Model File
-        cnn = get_model(opt)
-        x = cnn(obs)
-
-        # Add FC Layers for PPO Actor
+        
+        # Grab Shared Backbone from Models
+        self.feature_extractor = get_model(opt)
+        
+        # Build Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            x = Dense(opt.fc_width, activation='relu')(x)
+            fc_layers.append(Dense(opt.fc_width, activation='relu'))
+        
+        self.actor_network = Sequential(fc_layers)
+        self.critic_network = Sequential(fc_layers)
 
-        # Model Outputs Mean Value for Each Continuous Action
-        out = Dense(self.num_actions, activation='tanh')(x)
-
-        # Compile Model with Custom PPO Loss
-        model = Model(inputs=[obs], outputs=out)
-
+        # Add Final Output Layers to Each Head
+        self.actor_network.add(Dense(self.num_actions, activation='tanh'))
+        self.critic_network.add(Dense(1, activation='linear'))
+        
+        # Generate Passes & Compile Model
+        feats = self.feature_extractor(obs)
+        action_output = self.actor_network(feats)
+        value_output = self.critic_network(feats)
+        
+        model = Model(inputs=[obs], outputs=[action_output,value_output])
         model.summary()
-
-        return model
-
-
-    def create_critic(self, opt):
-        """Construct Critic with Similar Backbone as Actor"""
-
-        # Retrieve Model Backbone from Model File
-        model = get_model(opt)
-
-        # Add FC Layers for PPO Critic
-        for _ in range(opt.fc_layers):
-            model.add(Dense(opt.fc_width))
-
-        # Model Outputs Value Estimate for Each State
-        model.add(Dense(1))
-
-        model.summary()
-
+        
         return model
 
 
@@ -260,9 +242,11 @@ class PPOAgent():
 
 
     def act(self, obs):
-        """Get Action from Actor"""
+        """Get Action from Actor Network"""
         with tf.device('/cpu:0'):
-            action = self.actor(np.expand_dims(obs/255, axis=0))
+            obs = np.expand_dims(obs/255, axis=0)
+            feats = self.feature_extractor(obs)
+            action = self.actor_network(feats).numpy()
         return action
     
 
@@ -270,11 +254,13 @@ class PPOAgent():
         """Produce Values & Log Probabilties for Given Batch of Observations"""
 
         # Predict Value & Prepare Action Outputs
-        vals = self.critic(np.array(obss)/255)
+        obss = np.array(obss)/255
+        feats = self.feature_extractor(obss)
+        vals = self.critic_network(feats).numpy()
         acts = np.expand_dims(np.array(acts).flatten(), axis=0)
 
         # Calculate Log Probabilities of Each Action
-        dist = tfd.Normal(np.array(acts), self.ACTOR_SIGMA)
+        dist = tfd.Normal(acts, self.ACTOR_SIGMA)
         log_probs = dist.log_prob(acts).numpy().squeeze()
 
         return vals, log_probs
@@ -327,23 +313,22 @@ class PPOAgent():
                 rets = tf.constant(rets, tf.float32)
                 prbs = tf.constant(prbs, tf.float32)
                 
-                with tf.GradientTape() as tape1, tf.GradientTape() as tape2:
+                with tf.GradientTape() as tape:
                     
                     # Run Forward Passes on Models
-                    a_pred = self.actor([obss/255], training=True)
-                    v_pred = self.critic([obss/255], training=True)
+                    a_pred, v_pred = self.policy([obss/255], training=True)
                     
                     # Compute Respective Losses
                     c_loss = K.losses.mean_squared_error(rets, v_pred)
                     a_loss, ratios = self.PPO_loss(a_pred, acts, prbs, advs, entropy)
+                    
+                    tot_loss = 0.5 * c_loss + a_loss
 
                 # Compute Gradients & Apply to Model
-                grads1 = tape1.gradient(a_loss, self.actor.trainable_variables)
-                grads2 = tape2.gradient(c_loss, self.critic.trainable_variables)
-                self.a_optimizer.apply_gradients(zip(grads1, self.actor.trainable_variables))
-                self.c_optimizer.apply_gradients(zip(grads2, self.critic.trainable_variables))
+                gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
+                self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
-                # logging.info("Actor Loss: {}".format(a_loss))
+                logging.info("Model Loss: {}".format(a_loss))
                 
                 # Compute KL Divergence for Early Stopping
                 self.kl_div = tf.reduce_mean((tf.math.exp(ratios) - 1) - ratios).numpy()
