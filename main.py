@@ -79,7 +79,6 @@ class opts(object):
         self.parser.add_argument('--gae_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
-        self.parser.add_argument('--target_alpha', default=0.9, type=float, help='Target Network Update Coefficient')
         self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
 
@@ -204,9 +203,7 @@ if __name__ == "__main__":
         if opt.agent in ["DQN", "CDQN"]:
             trainDQN(env, agent, int(opt.num_episodes), opt)
         else:
-            while agent.total_steps < 200 * opt.num_episodes:
-                agent.collect_rollout(env, opt=opt)
-                agent.train()
+            agent.learn(env, opt)
 
     else:
         

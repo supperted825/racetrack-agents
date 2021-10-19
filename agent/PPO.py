@@ -1,11 +1,9 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
-from tensorflow.python.framework.ops import disable_eager_execution
 
 import tensorflow as tf
 import tensorflow.keras as K
-import tensorflow.keras.backend as F
 
 import tensorflow_probability as tfp
 tfd = tfp.distributions
@@ -30,6 +28,7 @@ from .models import get_model
 #         update policy by maximizing PPO clip objective via Adam
 #         fit value function by regression with mse error via Adam
 
+
 class PPOAgent():
     """Proximal Policy Optimisation Agent with Clipping"""
 
@@ -42,15 +41,12 @@ class PPOAgent():
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
-            disable_eager_execution()
-            tf.compat.v1.experimental.output_all_intermediates(True)
 
             # PPO Hyperparameters
             self.GAE_GAMMA = opt.gae_gamma
             self.GAE_LAMBDA = opt.gae_lambda
             self.PPO_EPSILON = opt.ppo_epsilon
             self.ENTROPY = opt.ppo_entropy
-            self.TARGET_ALPHA = opt.target_alpha
             self.TARGET_KL = opt.target_kl
             self.ACTOR_SIGMA = opt.actor_sigma
 
@@ -60,9 +56,9 @@ class PPOAgent():
             # Instantiate Models & Replay Buffer
             self.actor = self.create_actor(opt)
             self.critic = self.create_critic(opt)
-
-            self.target_actor = self.create_actor(opt)
-            self.target_actor.set_weights(self.actor.get_weights())
+            
+            self.a_optimizer = Adam(learning_rate=self.lr)
+            self.c_optimizer = Adam(learning_rate=self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
             self.total_steps = 0
@@ -70,7 +66,7 @@ class PPOAgent():
             self.num_updates = 0
             self.kl_div = 0
             self.replay_memory = {
-                "obss" : [], "acts" : [], "rews" : [], "vals" : [], "prbs" : [], "mask" : []}
+                "obss" : [], "acts" : [], "rews" : [], "mask" : []}
 
             # For Manual Logging (TensorBoard doesn't work with Eager Execution Disabled)
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
@@ -96,7 +92,6 @@ class PPOAgent():
 
         # Define Model Inputs
         obs = Input(shape=opt.obs_dim)
-        adv = Input(shape=(1,))
 
         # Retrieve Model from Model File
         cnn = get_model(opt)
@@ -110,10 +105,7 @@ class PPOAgent():
         out = Dense(self.num_actions, activation='tanh')(x)
 
         # Compile Model with Custom PPO Loss
-        model = Model(inputs=[obs, adv], outputs=out)
-        model.compile(
-                    loss=self.PPO_loss(adv),
-                    optimizer=Adam(learning_rate=self.lr))
+        model = Model(inputs=[obs], outputs=out)
 
         model.summary()
 
@@ -133,42 +125,9 @@ class PPOAgent():
         # Model Outputs Value Estimate for Each State
         model.add(Dense(1))
 
-        # Critic Simply Uses MSE Loss
-        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
         model.summary()
 
         return model
-    
-
-    def PPO_loss(self, advs):
-        """Custom PPO Loss, Wrapped to Feed Advantage In"""
-        # Keras Backend must be used here as values are symbolic only.
-        # Must involve y_true & y_pred inputs, otherwise model will not train.
-
-        def loss(y_true, y_pred):
-            """Calculate Clipped Loss According to https://arxiv.org/pdf/1707.06347.pdf"""
-
-            # Get Old & New Distributions & Log Probabilities of Buffer Actions
-            new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
-            new_log_probs = new_dist.log_prob(y_true)
-
-            old_dist = tfd.Normal(y_true, self.ACTOR_SIGMA)
-            old_log_probs = new_dist.log_prob(y_true)
-
-            # Calculate Ratio Between Old & New Policy
-            ratios = F.exp(new_log_probs - old_log_probs)
-
-            # Clipped Actor Loss
-            loss1 = advs * ratios
-            loss2 = advs * F.clip(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
-            actor_loss = F.mean(-F.minimum(loss1, loss2))
-
-            # Entropy Bonus
-            entropy_loss = - self.ENTROPY * old_dist.entropy()
-
-            return actor_loss + entropy_loss
-        
-        return loss
 
 
     def write_log(self, step, **logs):
@@ -205,6 +164,7 @@ class PPOAgent():
         else:
             last_val = vals[-1]
         
+        last_adv = 0
         g = self.GAE_GAMMA
         l = self.GAE_LAMBDA
 
@@ -213,22 +173,24 @@ class PPOAgent():
         acts = np.empty((len(mem["obss"]), self.num_actions))
         advs = np.empty((len(mem["obss"]),))
         rets = np.empty((len(mem["obss"]),))
-
-        for idx, value in enumerate(vals[::-1]):
-            reward = mem["rews"][idx]
-            mask = mem["mask"][idx]
+        
+        for idx, value in enumerate(reversed(vals)):
+            reward = mem["rews"][-idx]
+            mask = mem["mask"][-idx]
 
             # Calculate Return & Advantage
-            ret = reward + g * last_val * mask - value
-            adv = ret - value
+            delta = reward + g * last_val * mask - value
+            adv = delta + g * l * last_adv * mask
+            ret = value + adv
 
             # Append to Output Arrays
-            obss[-idx-1] = mem["obss"][idx]
-            acts[-idx-1] = mem["acts"][idx]
-            rets[-idx-1] = ret
+            obss[-idx-1] = mem["obss"][-idx-1]
+            acts[-idx-1] = mem["acts"][-idx-1]
             advs[-idx-1] = adv
+            rets[-idx-1] = ret
 
             last_val = value if mask == 1 else ret
+            last_adv = adv
 
         return obss, acts, advs, rets, prbs
 
@@ -279,11 +241,12 @@ class PPOAgent():
 
         # Show Training Progress on Console
         logging.info(40*"-")
-        logging.info("Total Steps: {}".format(self.total_steps))
-        logging.info("Average Reward: {}".format(avg_reward))
-        logging.info("Average Episode Length: {}".format(avg_ep_len))
-        logging.info("Num. Model Updates: {}".format(self.num_updates))
-        logging.info("Previous KL Div: {}".format(self.kl_div))
+        logging.info(f"Total Steps: {self.total_steps}")
+        logging.info(f"Average Reward: {avg_reward:.3f}")
+        logging.info(f"Average Episode Length: {avg_ep_len}")
+        logging.info(f"Num. Model Updates: {self.num_updates}")
+        logging.info(f"Previous KL Div: {self.kl_div:.3f}")
+        logging.info(40*"-")
 
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
 
@@ -297,26 +260,40 @@ class PPOAgent():
 
 
     def act(self, obs):
-        """Get Optimal Action from Target Actor"""
-        return self.target_actor.predict_on_batch([[obs/255], self.ADV_PLACEHOLDER])
+        """Get Action from Actor"""
+        with tf.device('/cpu:0'):
+            action = self.actor(np.expand_dims(obs/255, axis=0))
+        return action
     
 
-    def evaluate(self, obss, acts=None):
+    def evaluate(self, obss, acts):
         """Produce Values & Log Probabilties for Given Batch of Observations"""
 
-        # Pull Outputs from Each Model
-        vals = self.critic.predict(np.array(obss)/255)
-        if acts == None:
-            acts = self.target_actor.predict([obss/255, np.repeat(self.ADV_PLACEHOLDER, len(vals), axis=0)])
-        else:
-            acts = np.expand_dims(np.array(acts).flatten(), axis=1)
+        # Predict Value & Prepare Action Outputs
+        vals = self.critic(np.array(obss)/255)
+        acts = np.expand_dims(np.array(acts).flatten(), axis=0)
 
         # Calculate Log Probabilities of Each Action
         dist = tfd.Normal(np.array(acts), self.ACTOR_SIGMA)
-        log_probs = dist.log_prob(acts).eval(session=tf.compat.v1.Session())
+        log_probs = dist.log_prob(acts).numpy().squeeze()
 
         return vals, log_probs
 
+
+    def compute_entropy(self, acts):
+        """Compute Distribution Entropy for Entropy Loss"""
+        dist = tfd.Normal(np.array(acts), self.ACTOR_SIGMA)
+        entropy = tf.math.reduce_mean(dist.entropy())
+        return entropy
+    
+    
+    def learn(self, env, opt):
+        """Run Rollout & Training Sequence"""
+        
+        while self.total_steps < 200 * opt.num_episodes:
+            self.collect_rollout(env, opt)
+            self.train()    
+    
 
     def train(self):
         """Train Agent by Consuming Collected Memory Buffer"""
@@ -324,7 +301,7 @@ class PPOAgent():
         # Process Returns & Advantages for Buffer Info
         buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
 
-        for batch_idx in range(0, len(buffer_obss), self.batch_size): 
+        for idx, batch_idx in enumerate(range(0, len(buffer_obss), self.batch_size)): 
 
             # Go Through Buffer Batch Size at a Time
             obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
@@ -332,36 +309,73 @@ class PPOAgent():
             advs = buffer_advs[batch_idx:batch_idx + self.batch_size]
             rets = buffer_rets[batch_idx:batch_idx + self.batch_size]
             prbs = buffer_prbs[batch_idx:batch_idx + self.batch_size]
-
-            # Normalise Advantages & Reshape as a Single Batch
+            
+            # Normalise Advantages & Reshape with Log Probs as Single Batch
             advs = (advs - advs.mean()) / (advs.std() + 1e-10)
-            advs = np.expand_dims(advs,axis=1)
+            advs = np.expand_dims(advs, axis=1)
+            prbs = np.expand_dims(prbs, axis=1)
+            
+            # Compute Entropy for Entropy Loss
+            entropy = self.compute_entropy(acts)
+            entropy = tf.cast(entropy, dtype=tf.float32)
 
             for epoch in range(self.epochs):
                 
-                # Compute KL Divergence with Log Ratio for Early Stopping
-                _, log_probs = self.evaluate(obss)
+                # Cast Constant Inputs to Tensors
+                acts = tf.constant(acts, tf.float32)
+                advs = tf.constant(advs, tf.float32)
+                rets = tf.constant(rets, tf.float32)
+                prbs = tf.constant(prbs, tf.float32)
                 
-                log_ratio = np.exp(log_probs - prbs)
-                self.kl_div = np.mean((np.exp(log_ratio) - 1) - log_ratio)
+                with tf.GradientTape() as tape1, tf.GradientTape() as tape2:
+                    
+                    # Run Forward Passes on Models
+                    a_pred = self.actor([obss/255], training=True)
+                    v_pred = self.critic([obss/255], training=True)
+                    
+                    # Compute Respective Losses
+                    c_loss = K.losses.mean_squared_error(rets, v_pred)
+                    a_loss, ratios = self.PPO_loss(a_pred, acts, prbs, advs, entropy)
+
+                # Compute Gradients & Apply to Model
+                grads1 = tape1.gradient(a_loss, self.actor.trainable_variables)
+                grads2 = tape2.gradient(c_loss, self.critic.trainable_variables)
+                self.a_optimizer.apply_gradients(zip(grads1, self.actor.trainable_variables))
+                self.c_optimizer.apply_gradients(zip(grads2, self.critic.trainable_variables))
                 
-                logging.info("Epoch {}: KL Divergence of {}".format(epoch, self.kl_div))
+                # logging.info("Actor Loss: {}".format(a_loss))
+                
+                # Compute KL Divergence for Early Stopping
+                self.kl_div = tf.reduce_mean((tf.math.exp(ratios) - 1) - ratios).numpy()
 
                 if self.TARGET_KL != None and self.kl_div > self.TARGET_KL:
-                    print(f"Early stopping at epoch {epoch} due to reaching max kl: {self.kl_div:.2f}")
+                    logging.info(f"Early stopping at epoch {epoch+1} due to reaching max kl: {self.kl_div:.3f}")
                     break
-
-                # Train Actor & Critic
-                self.actor.fit(x=[obss/255, advs], y=acts, batch_size=self.batch_size, verbose=0)
-                self.critic.fit(x=obss/255, y=rets, batch_size=self.batch_size, verbose=0)
-
-                # Soft-Update Target Network
-                actor_weights = np.array(self.actor.get_weights(), dtype=object)
-                target_actor_weights = np.array(self.target_actor.get_weights(), dtype=object)
-                new_weights = self.TARGET_ALPHA * actor_weights \
-                                + (1-self.TARGET_ALPHA) * target_actor_weights
-                self.target_actor.set_weights(new_weights)
-
+                
                 self.num_updates += 1
+                
+            logging.info(f"Batch {idx+1}: KL Divergence of {self.kl_div:.3f}")
         
         self.clear_memory()
+
+
+    @tf.function
+    def PPO_loss(self, y_pred, acts, old_log_probs, advs, entropy):
+        """Clipped PPO Loss for Actor"""
+        
+        # Get New Distributions & Log Probabilities of Actions
+        new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
+        new_log_probs = new_dist.log_prob(acts)
+
+        # Calculate Ratio Between Old & New Policy
+        ratios = tf.math.exp(new_log_probs - old_log_probs)
+
+        # Clipped Actor Loss
+        loss1 = advs * ratios
+        loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
+        actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
+
+        # Entropy Bonus
+        entropy_loss = - self.ENTROPY * entropy
+
+        return actor_loss + entropy_loss, ratios
