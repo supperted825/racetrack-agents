@@ -10,6 +10,19 @@ from highway_env.road.road import Road, RoadNetwork
 from highway_env.vehicle.behavior import IDMVehicle
 
 
+NEXT_ROAD = {
+    ("a", "b") : ("b", "c"),
+    ("b", "c") : ("c", "d"),
+    ("c", "d") : ("d", "e"),
+    ("d", "e") : ("e", "f"),
+    ("e", "f") : ("f", "g"),
+    ("f", "g") : ("g", "h"),
+    ("g", "h") : ("h", "i"),
+    ("h", "i") : ("i", "a"),
+    ("i", "a") : ("a", "b")
+}
+
+
 class RaceTrackEnv(AbstractEnv):
 
     """A lane keeping control task with interaction, in a racetrack-like loop."""
@@ -111,14 +124,14 @@ class RaceTrackEnv(AbstractEnv):
 
     def _is_subgoal(self) -> int:
         # Reward Agent When Reaching Correct New Road.
-        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)
+        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
         if not self.agent_target:
-            self.agent_target = self.road.network.next_lane(agent_current)[:2]
+            self.agent_target = NEXT_ROAD[agent_current]
             return 0
-        elif self.agent_target != agent_current[:2]:
+        elif self.agent_target != agent_current:
             return 0
         self.agent_current = self.agent_target
-        self.agent_target = self.road.network.next_lane(agent_current)[:2]
+        self.agent_target = NEXT_ROAD[agent_current]
         return 1
     
     
