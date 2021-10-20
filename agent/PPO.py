@@ -242,13 +242,19 @@ class PPOAgent():
         return ep_rewards, ep_lengths
 
 
-    def act(self, obs):
+    def act(self, obs, optimal=False):
         """Get Action from Actor Network"""
+        
         with tf.device('/cpu:0'):
             obs = np.expand_dims(obs/255, axis=0)
             feats = self.feature_extractor(obs, training=False)
-            action = self.actor_network(feats).numpy()
-        return action
+            action = self.actor_network(feats)
+            
+            if not optimal:
+                dist = tfd.Normal(a_pred, self.ACTOR_SIGMA)
+                action = dist.sample()
+    
+        return action.numpy()
     
 
     def evaluate(self, obss, acts):
