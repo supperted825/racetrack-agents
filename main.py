@@ -76,7 +76,7 @@ class opts(object):
 
         # PPO Hyperparameters
         self.parser.add_argument('--gae_lambda', default=0.99, type=float, help='Generalised Advantage Estimate Lambda')
-        self.parser.add_argument('--gae_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--gae_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
         self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
