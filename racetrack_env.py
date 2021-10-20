@@ -110,11 +110,12 @@ class RaceTrackEnv(AbstractEnv):
 
 
     def _is_subgoal(self) -> int:
-        # Reward Agent When Reaching Correct New Road. 
+        # Reward Agent When Reaching Correct New Road.
+        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
         if not self.agent_target:
-            self.agent_target = self.road.network.next_lane(self.vehicle.lane)[:2]
+            self.agent_target = self.road.network.next_lane(agent_current)[:2]
             return 0
-        elif self.agent_target != self.vehicle.lane[:2]:
+        elif self.agent_target != agent_current:
             return 0
         self.agent_current = self.agent_target
         self.agent_target = self.road.network.next_lane(self.vehicle.lane)[:2]
@@ -124,7 +125,7 @@ class RaceTrackEnv(AbstractEnv):
     def _reward_lane_centering(self) -> int:
         # Reward Agent Only if Driving on Current or Target Road
         # In Theory, Should Only Trigger when current == agent_current
-        current_lane = self.vehicle.lane[:2]
+        current_lane = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
         if current_lane in [self.agent_current, self.agent_target]:
             return True
 
