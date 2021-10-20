@@ -15,6 +15,28 @@ class RaceTrackEnv(AbstractEnv):
     """A lane keeping control task with interaction, in a racetrack-like loop."""
 
     def __init__(self, opt, config: dict = None) -> None:
+
+        # Configure Environment with Opt Parameters
+        config = {
+            
+            "observation": {
+                "type": "GrayscaleObservation",
+                "observation_shape": tuple(opt.obs_dim[-2:]),
+                "stack_size": opt.obs_dim[0],
+                "weights": [0.2989, 0.5870, 0.1140],
+                "scaling": 1.75,
+            },
+            "action": {
+                "type": "ContinuousAction",
+                "longitudinal": False if opt.num_actions < 2 else True,
+                "lateral": True,
+                "dynamical": False
+            },
+            "spawn_vehicles": opt.spawn_vehicles
+            
+        }
+        
+        # Default Initialisation
         super().__init__(config)
         self.lane = None
         self.lanes = []
@@ -22,30 +44,11 @@ class RaceTrackEnv(AbstractEnv):
         self.interval_trajectory = []
         self.lpv = None
 
-        # Additional Settings
-        self.config["action"]["longitudinal"] = False if opt.num_actions < 2 else True
-        self.config["observation"]["stack_size"] = opt.obs_dim[0]
-        self.config["observation"]["observation_shape"] = tuple(opt.obs_dim[-2:])
-        print(self.config["observation"])
-
 
     @classmethod
     def default_config(cls) -> dict:
         config = super().default_config()
         config.update({
-            "observation": {
-                "type": "GrayscaleObservation",
-                "observation_shape": (64, 64),
-                "stack_size": 4,
-                "weights": [0.2989, 0.5870, 0.1140],
-                "scaling": 1.75,
-            },
-            "action": {
-                "type": "ContinuousAction",
-                "longitudinal": True,
-                "lateral": True,
-                "dynamical": True
-            },
 
             # Other Vehicle Information
             "controlled_vehicles": 1,
@@ -215,7 +218,7 @@ class RaceTrackEnv(AbstractEnv):
         ego_vehicle = self.action_type.vehicle_class(
             road, road.network.get_lane(("a", "b", 0)).position(0, 0),
             heading=road.network.get_lane(("a", "b", 0)).heading_at(0),
-            speed=10)
+            speed=8)
         
         ego_vehicle.MAX_SPEED = 10
 
@@ -224,13 +227,14 @@ class RaceTrackEnv(AbstractEnv):
 
         # Populate the Environment with One Other Vehicle
 
-        vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
-                                          longitudinal=random.uniform(
-                                              low=0,
-                                              high=self.road.network.get_lane(("b", "c", 0)).length
-                                          ),
-                                          speed=6+random.uniform(high=3))
-        self.road.vehicles.append(vehicle)
+        if self.config["spawn_vehicles"] > 0:
+            vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
+                                            longitudinal=random.uniform(
+                                                low=0,
+                                                high=self.road.network.get_lane(("b", "c", 0)).length
+                                            ),
+                                            speed=6+random.uniform(high=3))
+            self.road.vehicles.append(vehicle)
 
         # Other vehicles (if applicable)
         for i in range(random.randint(self.config["other_vehicles"])):
@@ -280,9 +284,9 @@ class RaceTrackEnv2(AbstractEnv):
             },
             "action": {
                 "type": "ContinuousAction",
-                "longitudinal": True,
+                "longitudinal": False,
                 "lateral": True,
-                "dynamical": True
+                "dynamical": False
             },
 
             # Other Vehicle Information

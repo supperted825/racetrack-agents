@@ -47,13 +47,15 @@ class opts(object):
         self.parser.add_argument('--save_video', action='store_true', help='Saves Env Render as Video')
 
         # Neural Network Settings
-        self.parser.add_argument('--arch', default='DoubleConv256', help='Neural Net Backbone')
+        self.parser.add_argument('--arch', default='DoubleConv', help='Neural Net Backbone')
         self.parser.add_argument('--fc_layers', default=2, type=int, help='Number of Dense Layers')
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
+        self.parser.add_argument('--spawn_vehicles', default=0, type=int, help='Number of Non-Agent Vehicles to Spawn')
+        self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
 
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
