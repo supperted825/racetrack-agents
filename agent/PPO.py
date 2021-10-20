@@ -372,7 +372,7 @@ class PPOAgent():
         """L2 Normalised Mean-Squared-Error"""
         critic_loss = tf.math.squared_difference(rets, y_pred)
         critic_loss = tf.math.l2_normalize(critic_loss)
-        critic_loss = tf.math.reduce_sum(critic_loss)
+        critic_loss = tf.math.reduce_mean(critic_loss)
         return critic_loss
         
     
