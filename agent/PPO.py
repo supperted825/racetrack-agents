@@ -241,18 +241,12 @@ class PPOAgent():
         return ep_rewards, ep_lengths
 
 
-    def act(self, obs, optimal=False):
+    def act(self, obs):
         """Get Action from Actor Network"""
-        
         with tf.device('/cpu:0'):
             obs = np.expand_dims(obs/255, axis=0)
             feats = self.feature_extractor(obs, training=False)
             action = self.actor_network(feats)
-            
-            if not optimal:
-                dist = tfd.Normal(action, self.ACTOR_SIGMA)
-                action = dist.sample()
-    
         return action.numpy()
     
 
@@ -293,26 +287,28 @@ class PPOAgent():
         # Process Returns & Advantages for Buffer Info
         buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
 
-        for idx, batch_idx in enumerate(range(0, len(buffer_obss), self.batch_size)): 
-
-            # Go Through Buffer Batch Size at a Time
-            obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
-            acts = buffer_acts[batch_idx:batch_idx + self.batch_size]
-            advs = buffer_advs[batch_idx:batch_idx + self.batch_size]
-            rets = buffer_rets[batch_idx:batch_idx + self.batch_size]
-            prbs = buffer_prbs[batch_idx:batch_idx + self.batch_size]
+        for epoch in range(self.epochs):
             
-            # Normalise Advantages & Reshape with Log Probs as Single Batch
-            advs = (advs - advs.mean()) / (advs.std() + 1e-10)
-            advs = np.expand_dims(advs, axis=1)
-            prbs = np.expand_dims(prbs, axis=1)
+            logging.info(f"Epoch {idx+1}: KL Divergence of {self.kl_div:.3f}")
             
-            # Compute Entropy for Entropy Loss
-            entropy = self.compute_entropy(acts)
-            entropy = tf.cast(entropy, dtype=tf.float32)
+            for idx, batch_idx in enumerate(range(0, len(buffer_obss), self.batch_size)): 
 
-            for epoch in range(self.epochs):
+                # Go Through Buffer Batch Size at a Time
+                obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
+                acts = buffer_acts[batch_idx:batch_idx + self.batch_size]
+                advs = buffer_advs[batch_idx:batch_idx + self.batch_size]
+                rets = buffer_rets[batch_idx:batch_idx + self.batch_size]
+                prbs = buffer_prbs[batch_idx:batch_idx + self.batch_size]
                 
+                # Normalise Advantages & Reshape with Log Probs as Single Batch
+                advs = (advs - advs.mean()) / (advs.std() + 1e-10)
+                advs = np.expand_dims(advs, axis=1)
+                prbs = np.expand_dims(prbs, axis=1)
+                
+                # Compute Entropy for Entropy Loss
+                entropy = self.compute_entropy(acts)
+                entropy = tf.cast(entropy, dtype=tf.float32)
+
                 # Cast Constant Inputs to Tensors
                 acts = tf.constant(acts, tf.float32)
                 advs = tf.constant(advs, tf.float32)
@@ -342,8 +338,6 @@ class PPOAgent():
                     break
                 
                 self.num_updates += 1
-                
-            logging.info(f"Batch {idx+1}: KL Divergence of {self.kl_div:.3f}")
         
         self.clear_memory()
 
