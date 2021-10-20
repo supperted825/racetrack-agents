@@ -81,7 +81,7 @@ class PPOAgent():
                     file.write('  %s: %s\n' % (str(k), str(v)))
 
 
-    def create_model(self, opt, fc_layers=[]):
+    def create_model(self, opt):
         """Constructs Policy Network with Shared Backbone & Actor+Critic Heads"""
         
         # Define Model Inputs
@@ -90,12 +90,13 @@ class PPOAgent():
         # Grab Shared Backbone from Models
         self.feature_extractor = get_model(opt)
         
-        # Build Layers for Actor & Critic Output Heads
-        for _ in range(opt.fc_layers):
-            fc_layers.append(Dense(opt.fc_width, activation='relu'))
+        self.actor_network = Sequential()
+        self.critic_network = Sequential()
         
-        self.actor_network = Sequential(fc_layers)
-        self.critic_network = Sequential(fc_layers)
+        # Build Hidden Layers for Actor & Critic Output Heads
+        for _ in range(opt.fc_layers):
+            self.actor_network.append(Dense(opt.fc_width, activation='relu'))
+            self.critic_network.append(Dense(opt.fc_width, activation='relu'))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh'))
@@ -245,7 +246,7 @@ class PPOAgent():
         """Get Action from Actor Network"""
         with tf.device('/cpu:0'):
             obs = np.expand_dims(obs/255, axis=0)
-            feats = self.feature_extractor(obs)
+            feats = self.feature_extractor(obs, training=False)
             action = self.actor_network(feats).numpy()
         return action
     
@@ -255,7 +256,7 @@ class PPOAgent():
 
         # Predict Value & Prepare Action Outputs
         obss = np.array(obss)/255
-        feats = self.feature_extractor(obss)
+        feats = self.feature_extractor(obss, training=False)
         vals = self.critic_network(feats).numpy()
         acts = np.expand_dims(np.array(acts).flatten(), axis=0)
 
