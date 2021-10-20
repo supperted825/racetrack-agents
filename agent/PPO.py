@@ -236,8 +236,7 @@ class PPOAgent():
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
         if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
-            self.actor.save(f'models/{self.name}_actor_best.model')
-            self.critic.save(f'models/{self.name}_critic_best.model')
+            self.policy.save(f'models/{self.name}_best.model')
         
         return ep_rewards, ep_lengths
 
@@ -251,7 +250,7 @@ class PPOAgent():
             action = self.actor_network(feats)
             
             if not optimal:
-                dist = tfd.Normal(a_pred, self.ACTOR_SIGMA)
+                dist = tfd.Normal(action, self.ACTOR_SIGMA)
                 action = dist.sample()
     
         return action.numpy()
