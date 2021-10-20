@@ -111,14 +111,14 @@ class RaceTrackEnv(AbstractEnv):
 
     def _is_subgoal(self) -> int:
         # Reward Agent When Reaching Correct New Road.
-        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
+        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)
         if not self.agent_target:
             self.agent_target = self.road.network.next_lane(agent_current)[:2]
             return 0
-        elif self.agent_target != agent_current:
+        elif self.agent_target != agent_current[:2]:
             return 0
         self.agent_current = self.agent_target
-        self.agent_target = self.road.network.next_lane(self.vehicle.lane)[:2]
+        self.agent_target = self.road.network.next_lane(agent_current)[:2]
         return 1
     
     
