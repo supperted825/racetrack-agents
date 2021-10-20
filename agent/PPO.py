@@ -329,8 +329,6 @@ class PPOAgent():
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
-                logging.info("Model Loss: {}".format(tot_loss.numpy()))
-                
                 # Compute KL Divergence for Early Stopping
                 self.kl_div = tf.reduce_mean((tf.math.exp(ratios) - 1) - ratios).numpy()
 
@@ -369,9 +367,8 @@ class PPOAgent():
     
     @tf.function
     def critic_loss(self, y_pred, rets):
-        """L2 Normalised Mean-Squared-Error"""
+        """Mean-Squared-Error for Critic"""
         critic_loss = tf.math.squared_difference(rets, y_pred)
-        critic_loss = tf.math.l2_normalize(critic_loss)
         critic_loss = tf.math.reduce_mean(critic_loss)
         return critic_loss
         
