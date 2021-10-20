@@ -1,9 +1,10 @@
+from tensorflow.keras.initializers import Orthogonal
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten, Permute, LSTM, Reshape
 
 # Various Neural Network Architectures are Defined Here
 
-def DoubleConv256(obs_shape):
+def DoubleConv(obs_shape):
 
     model = Sequential()
 
@@ -20,6 +21,22 @@ def DoubleConv256(obs_shape):
 
     model.add(Flatten())
 
+    return model
+
+
+def NatureCnn(obs_shape):
+    
+    model = Sequential()
+    
+    model.add(Permute((3,2,1), input_shape=obs_shape))
+    
+    model.add(Conv2D(32, 8, strides=4, kernel_initializer="orthogonal"))
+    model.add(Conv2D(64, 4, strides=2, kernel_initializer="orthogonal"))
+    model.add(Conv2D(64, 3, strides=1, kernel_initializer="orthogonal"))
+    
+    model.add(Flatten())
+    model.add(Dense(512))
+    
     return model
 
 
@@ -58,9 +75,10 @@ def MLP(obs_shape):
 # For Retrieval of Architectures
 
 model_factory = {
-    "DoubleConv256" : DoubleConv256,
-    "ConvLSTM"      : ConvLSTM,
-    "MLP"           : MLP
+    "DoubleConv": DoubleConv,
+    "NatureCnn" : NatureCnn,
+    "ConvLSTM"  : ConvLSTM,
+    "MLP"       : MLP,
 }
 
 def get_model(opt):
