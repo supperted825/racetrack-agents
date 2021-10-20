@@ -95,8 +95,8 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.append(Dense(opt.fc_width, activation='relu'))
-            self.critic_network.append(Dense(opt.fc_width, activation='relu'))
+            self.actor_network.add(Dense(opt.fc_width, activation='relu'))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu'))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh'))
