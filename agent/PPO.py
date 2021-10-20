@@ -320,18 +320,16 @@ class PPOAgent():
                     a_pred, v_pred = self.policy([obss/255], training=True)
                     
                     # Compute Respective Losses
-                    c_loss = tf.reduce_mean(tf.math.squared_difference(rets, v_pred))
+                    c_loss = self.critic_loss(v_pred, rets)
                     a_loss, ratios = self.PPO_loss(a_pred, acts, prbs, advs, entropy)
                     
-                    tot_loss = 0.1 * c_loss + 10 * a_loss
-                    
-                    print(c_loss.numpy(), a_loss.numpy())
+                    tot_loss = 0.5 * c_loss + a_loss
 
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
-                logging.info("Model Loss: {}".format(a_loss))
+                logging.info("Model Loss: {}".format(tot_loss.numpy()))
                 
                 # Compute KL Divergence for Early Stopping
                 self.kl_div = tf.reduce_mean((tf.math.exp(ratios) - 1) - ratios).numpy()
@@ -349,7 +347,7 @@ class PPOAgent():
 
     @tf.function
     def PPO_loss(self, y_pred, acts, old_log_probs, advs, entropy):
-        """Clipped PPO Loss for Actor"""
+        """PPO-Clip Loss for Actor"""
         
         # Get New Distributions & Log Probabilities of Actions
         new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
@@ -367,3 +365,14 @@ class PPOAgent():
         entropy_loss = - self.ENTROPY * entropy
 
         return actor_loss + entropy_loss, ratios
+    
+    
+    @tf.function
+    def critic_loss(self, y_pred, rets):
+        """L2 Normalised Mean-Squared-Error"""
+        critic_loss = tf.math.squared_difference(rets, y_pred)
+        critic_loss = tf.math.l2_normalize(critic_loss)
+        critic_loss = tf.math.reduce_sum(critic_loss)
+        return critic_loss
+        
+    
