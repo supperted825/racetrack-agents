@@ -291,7 +291,7 @@ class PPOAgent():
             
             logging.info(f"Epoch {epoch}: KL Divergence of {self.kl_div:.3f}")
             
-            for idx, batch_idx in enumerate(range(0, len(buffer_obss), self.batch_size)): 
+            for batch_idx in range(0, len(buffer_obss), self.batch_size): 
 
                 # Go Through Buffer Batch Size at a Time
                 obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
@@ -328,6 +328,7 @@ class PPOAgent():
 
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
+                gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
                 # Compute KL Divergence for Early Stopping
