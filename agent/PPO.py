@@ -100,7 +100,7 @@ class PPOAgent():
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh'))
-        self.critic_network.add(Dense(1, activation='linear'))
+        self.critic_network.add(Dense(1))
         
         # Generate Passes & Compile Model
         feats = self.feature_extractor(obs)
@@ -320,10 +320,12 @@ class PPOAgent():
                     a_pred, v_pred = self.policy([obss/255], training=True)
                     
                     # Compute Respective Losses
-                    c_loss = K.losses.mean_squared_error(rets, v_pred)
+                    c_loss = tf.reduce_mean(tf.math.squared_difference(rets, v_pred))
                     a_loss, ratios = self.PPO_loss(a_pred, acts, prbs, advs, entropy)
                     
-                    tot_loss = 0.5 * c_loss + a_loss
+                    tot_loss = 0.1 * c_loss + 10 * a_loss
+                    
+                    print(c_loss.numpy(), a_loss.numpy())
 
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
