@@ -39,7 +39,7 @@ class opts(object):
         self.parser = argparse.ArgumentParser()
         
         # Configuration Settings
-        self.parser.add_argument('--mode', default='train', help='Train or Test')
+        self.parser.add_argument('--mode', default='train', help='Train, Test, Manual')
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
         self.parser.add_argument('--debug', default=0, type=int, help='Test Algo with (1) HighwayEnv Implementation, (2) OpenAI Gym')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         else:
             agent.learn(env, opt)
 
-    else:
+    elif opt.mode == "test":
         
         model = keras.models.load_model(opt.load_model)
         total_reward, obs = 0, env.reset()
@@ -222,8 +222,21 @@ if __name__ == "__main__":
             print("Total Reward: ", total_reward)
 
         else:
+            
             for _ in range(200):
                 action = model.predict(np.array([obs])/255)[0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward
             print("Total Reward: ", total_reward)
+            
+    elif opt.mode == "manual":
+        
+        env.configure({"manual_control": True})
+        env.reset()
+        total_reward, done = 0, False
+        
+        while not done:
+            obs, reward, done, _ = env.step(env.action_space.sample())
+            total_reward += reward
+        print("Total Reward: ", total_reward)
+        
