@@ -82,9 +82,9 @@ class RaceTrackEnv(AbstractEnv):
 
             # Reward Values
             "collision_reward": -1,
-            "lane_centering_ratio": 1,
             "action_reward": -0.3,
             "offroad_penalty": -1,
+            "lane_centering_ratio": 1,
             "subgoal_reward_ratio": 5,
 
             # Rendering Information
@@ -102,32 +102,35 @@ class RaceTrackEnv(AbstractEnv):
         _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
         lane_centering_reward = self.config["lane_centering_ratio"] / (1+lateral**2)
         lane_centering_reward = lane_centering_reward if self._reward_lane_centering() else 0
-        # print("Laning", lane_centering_reward)
+        print("Laning", lane_centering_reward)
         
         # Reward for Minimizing Magnitude of Action
         action_reward = self.config["action_reward"]*np.linalg.norm(action)
-        # print("Action", action_reward)
+        print("Action", action_reward)
         
         # Reward for Reducing Distance to Subgoal
         subgoal_reward = self.config["subgoal_reward_ratio"] / (1 + self._subgoal_distance())
-        # print("Subgoal", subgoal_reward)
+        print("Subgoal", subgoal_reward)
 
         # Offroad Penalty
         offroad_penalty = self.config["offroad_penalty"] * (0 if self.vehicle.on_road else 1)
-        # print("Offroad Penalty", offroad_penalty)
+        print("Offroad Penalty", offroad_penalty)
 
         # Combine Rewards
-        reward = lane_centering_reward + subgoal_reward \
-                + action_reward + offroad_penalty \
+        reward = lane_centering_reward + action_reward \
+                + subgoal_reward + offroad_penalty \
                 + self.config["collision_reward"] * self.vehicle.crashed
-        # print("Total", reward, "\n")
         
-        # Give Offroad Penalty only if Offroad
+        # Count Steps Spent Offroad for Early Stopping
         if not self.vehicle.on_road:
-            reward -= self.config["offroad_penalty"]
             self.offroad_counter += 1
         else:
             self.offroad_counter = 0
+            
+        # Map Rewards to 0 and 1 for Normalisation
+        max_reward = self.config["subgoal_reward_ratio"] + self.config["lane_centering_ratio"]
+        min_reward = self.config["offroad_penalty"]
+        reward = utils.lmap(reward, [min_reward, max_reward], [0, 1])
 
         return reward
 
