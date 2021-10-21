@@ -226,7 +226,7 @@ class PPOAgent():
         logging.info(40*"-")
         logging.info(f"Total Steps: {self.total_steps}")
         logging.info(f"Average Reward: {avg_reward:.3f}")
-        logging.info(f"Average Episode Length: {avg_ep_len}")
+        logging.info(f"Average Episode Length: {avg_ep_len:.3f}")
         logging.info(f"Num. Model Updates: {self.num_updates}")
         logging.info(f"Previous KL Div: {self.kl_div:.3f}")
         logging.info(40*"-")
