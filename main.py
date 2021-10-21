@@ -155,9 +155,9 @@ def trainDQN(env, agent, num_episodes, opt):
         
         # For Logging Interval, Extract Average, Lowest, Best Reward Attained
         if episode % opt.log_freq == 0 or episode == 1:
-            avg_reward = np.mean(rewards[-opt.log_freq:])
-            min_reward = np.min(rewards[-opt.log_freq:])
-            max_reward = np.max(rewards[-opt.log_freq:])
+            avg_reward = round(np.mean(rewards[-opt.log_freq:]),3)
+            min_reward = round(np.min(rewards[-opt.log_freq:]),3)
+            max_reward = round(np.max(rewards[-opt.log_freq:]),3)
             agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
 
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
