@@ -248,10 +248,6 @@ class PPOAgent():
             obs = np.expand_dims(obs/255, axis=0)
             feats = self.feature_extractor(obs, training=False)
             action = self.actor_network(feats)
-            
-            if not optimal:
-                dist = tfd.Normal(action, self.ACTOR_SIGMA)
-                action = dist.sample()
 
         return action.numpy()
     
