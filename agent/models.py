@@ -67,8 +67,8 @@ def MLP(obs_shape):
 
     model.add(Permute((3,2,1), input_shape=obs_shape))
     model.add(Flatten())
-    model.add(Dense(256, activation='relu'))
-    model.add(Dense(256, activation='relu'))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(64, activation='relu'))
 
     return model
 
