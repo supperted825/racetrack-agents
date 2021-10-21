@@ -33,11 +33,17 @@ class RaceTrackEnv(AbstractEnv):
         config = {
             
             "observation": {
-                "type": "GrayscaleObservation",
-                "observation_shape": tuple(opt.obs_dim[-2:]),
-                "stack_size": opt.obs_dim[0],
-                "weights": [0.2989, 0.5870, 0.1140],
-                "scaling": 1.75,
+                # "type": "GrayscaleObservation",
+                # "observation_shape": tuple(opt.obs_dim[-2:]),
+                # "stack_size": opt.obs_dim[0],
+                # "weights": [0.2989, 0.5870, 0.1140],
+                # "scaling": 1.75,
+                "type": "OccupancyGrid",
+                "features": ['presence', 'on_road'],
+                "grid_size": [[-18, 18], [-18, 18]],
+                "grid_step": [1, 1],
+                "as_image": False,
+                "align_to_vehicle_axes": True
             },
             "action": {
                 "type": "ContinuousAction",
@@ -61,6 +67,7 @@ class RaceTrackEnv(AbstractEnv):
         self.agent_current = None
         self.agent_target = None
         self.offroad_counter = 0
+        self.offroad_threshold = opt.offroad_thres
 
 
     @classmethod
@@ -82,7 +89,7 @@ class RaceTrackEnv(AbstractEnv):
 
             # Reward Values
             "collision_reward": -1,
-            "action_reward": -0.3,
+            "action_reward": 0.3,
             "offroad_penalty": -1,
             "lane_centering_cost": 4,
             "subgoal_reward_ratio": 1,
@@ -98,42 +105,42 @@ class RaceTrackEnv(AbstractEnv):
 
     def _reward(self, action: np.ndarray) -> float:
         
-        # Reward for Reducing Distance to Lane Center
-        _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
-        lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
-        lane_centering_reward = lane_centering_reward if self._reward_lane_centering() else 0
-        print("Laning", lane_centering_reward)
+        longitudinal, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
         
-        # Reward for Minimizing Magnitude of Action
-        action_reward = self.config["action_reward"]*np.linalg.norm(action)
-        print("Action", action_reward)
+        # If Target Road Reached by Agent, Assign New Target
+        if self.agent_target in [None, self.vehicle.lane_index[:2]]:
+            self.agent_current = self.vehicle.lane_index[:2]
+            self.agent_target = NEXT_ROAD[self.agent_current]
+        
+        # Penalty for Magnitude of Action
+        action_reward = - self.config["action_reward"]*np.linalg.norm(action)
         
         # Reward for Reducing Distance to Subgoal
-        subgoal_dist = self._compute_subgoal()
         subgoal_reward = self.config["subgoal_reward_ratio"] * \
-                        (self.max_target_dist - subgoal_dist) / self.max_target_dist
-                            
-        print("Subgoal", subgoal_reward)
+                        (self.vehicle.lane.length - longitudinal) / self.vehicle.lane.length
+        subgoal_reward = subgoal_reward if self._reward_laning() else 0
+        
+        # Reward for Reducing Distance to Lane Center
+        lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
+        lane_centering_reward = lane_centering_reward if self._reward_laning() else 0
 
         # Combine Rewards
         reward = lane_centering_reward + action_reward + subgoal_reward \
                 + self.config["collision_reward"] * self.vehicle.crashed
                 
-        # Offroad Penalty
-        reward = self.config["offroad_penalty"] if not self.vehicle.on_road else reward
-        # print("Offroad Penalty", offroad_penalty)
-        
-        # Count Steps Spent Offroad for Early Stopping
+        # Offroad Penalty - No Rewards Given if Off-Road
+        if not self.vehicle.on_road or not self._reward_laning():
+            reward = self.config["offroad_penalty"]
+
+        # Count Steps Spent Offroad for Early Stopping (See _is_terminal())
         if not self.vehicle.on_road:
             self.offroad_counter += 1
         else:
             self.offroad_counter = 0
         
-        print("Unnormalised", reward)
-        
         # Map Rewards to 0 and 1 for Normalisation
         reward = utils.lmap(reward, [-1, 2], [0, 1])
-        print("Total",reward, "\n")
+    
         return reward
 
 
@@ -141,43 +148,14 @@ class RaceTrackEnv(AbstractEnv):
         # Terminate episode if crashed, max steps exceeded or finished a lap ("i, a", max coords)
         return self.vehicle.crashed or self._is_goal() or \
             self.steps >= self.config["duration"] or \
-            self.offroad_counter == 20
-
-
-    def _compute_subgoal(self, switched = False) -> int:
-        # Calculate Parameters for Subgoal Reward
-        
-        curr_lane_idx = self.vehicle.lane_index
-        road = curr_lane_idx[:2]
-        lane = curr_lane_idx[2]
-        
-        # Reset Current & Target Roads
-        if self.agent_target in [None, road]:
-            self.agent_current = curr_lane_idx[:2]
-            self.agent_target = NEXT_ROAD[self.agent_current]
-            switched = True
-            
-        # Next Target is Next Road, Same Lane
-        target_lane_idx = tuple(list(self.agent_target) + [lane])
-        target_lane     = self.road.network.get_lane(target_lane_idx)
-        target_lane_pos = target_lane.position(0,0)
-            
-        # Calculate Distance to Target
-        squared_dist = np.square(self.vehicle.position - target_lane_pos)
-        dist = np.sum(squared_dist)
-        
-        # Record Max Dist for Reward Calculation
-        if switched:
-            self.max_target_dist = dist
-
-        return dist
+            self.offroad_counter == self.offroad_threshold
     
     
-    def _reward_lane_centering(self) -> int:
+    def _reward_laning(self) -> int:
         # Reward Agent Only if Driving on Current or Target Road
         # In Theory, Should Only Trigger when current == agent_current
         current_lane = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
-        if current_lane in [self.agent_current, self.agent_target]:
+        if current_lane == self.agent_current:
             return True
 
 

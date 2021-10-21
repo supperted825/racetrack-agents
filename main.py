@@ -9,12 +9,15 @@ import tensorflow.keras as keras
 import os
 import gym
 import glob
+import logging
 import subprocess
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
+
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 GET_AGENT = {
@@ -54,7 +57,8 @@ class opts(object):
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
-        self.parser.add_argument('--spawn_vehicles', default=0, type=int, help='Number of Non-Agent Vehicles to Spawn')
+        self.parser.add_argument('--offroad_thres', default=5, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
+        self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn')
         self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
 
         # Experiment Settings
@@ -92,7 +96,7 @@ class opts(object):
         return opt
 
 
-def generate_video(seq, name, folder="./video"):
+def generate_video(seq, name, folder="./videos"):
     """Save Videos from Sequence of Images"""
     for i in range(len(seq)):
         plt.imshow(seq[i], cmap=cm.Greys_r)
@@ -210,7 +214,7 @@ if __name__ == "__main__":
     elif opt.mode == "test":
         
         model = keras.models.load_model(opt.load_model)
-        total_reward, obs = 0, env.reset()
+        total_reward, obs, seq = 0, env.reset(), []
         
         if opt.agent in ["DQN", "CDQN"]:
             for _ in range(200):
@@ -219,6 +223,7 @@ if __name__ == "__main__":
                 obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
                                                 SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
                 total_reward += reward
+                print(reward)
             print("Total Reward: ", total_reward)
 
         else:
@@ -227,7 +232,11 @@ if __name__ == "__main__":
                 action = model.predict(np.array([obs])/255)[0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward
+                seq.append(env.render(mode="rgb_array"))
+                print(reward)
             print("Total Reward: ", total_reward)
+            print("Saving Video...")
+            generate_video(seq, "result")
             
     elif opt.mode == "manual":
         
