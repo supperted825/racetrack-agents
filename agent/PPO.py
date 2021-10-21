@@ -291,7 +291,7 @@ class PPOAgent():
 
         for epoch in range(self.epochs):
             
-            logging.info(f"Epoch {epoch}: KL Divergence of {self.kl_div:.3f}")
+            # logging.info(f"Epoch {epoch}: KL Divergence of {self.kl_div:.3f}")
             
             for batch_idx in range(0, len(buffer_obss), self.batch_size): 
 
