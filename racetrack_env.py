@@ -124,7 +124,7 @@ class RaceTrackEnv(AbstractEnv):
         
         # Give Offroad Penalty only if Offroad
         if not self.vehicle.on_road:
-            reward = self.config["offroad_penalty"]
+            reward -= self.config["offroad_penalty"]
             self.offroad_counter += 1
         else:
             self.offroad_counter = 0
