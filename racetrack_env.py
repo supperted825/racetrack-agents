@@ -163,7 +163,7 @@ class RaceTrackEnv(AbstractEnv):
         # Calculate Distance to Target
         squared_dist = np.square(self.vehicle.position - target_lane_pos)
         dist = np.sqrt(np.sum(squared_dist))
-        print("Target Distance", dist)
+        # print("Target Distance", dist)
         return dist
     
     
