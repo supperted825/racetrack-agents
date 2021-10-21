@@ -83,7 +83,7 @@ class RaceTrackEnv(AbstractEnv):
             # Reward Values
             "collision_reward": -1,
             "action_reward": -0.3,
-            "offroad_penalty": -0.5,
+            "offroad_penalty": -1,
             "lane_centering_cost": 4,
             "subgoal_reward_ratio": 1,
 
@@ -102,24 +102,26 @@ class RaceTrackEnv(AbstractEnv):
         _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
         lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
         lane_centering_reward = lane_centering_reward if self._reward_lane_centering() else 0
-        # print("Laning", lane_centering_reward)
+        print("Laning", lane_centering_reward)
         
         # Reward for Minimizing Magnitude of Action
         action_reward = self.config["action_reward"]*np.linalg.norm(action)
-        # print("Action", action_reward)
+        print("Action", action_reward)
         
         # Reward for Reducing Distance to Subgoal
-        subgoal_reward = self.config["subgoal_reward_ratio"] / (1 + self._subgoal_distance())
-        # print("Subgoal", subgoal_reward)
-
-        # Offroad Penalty
-        offroad_penalty = self.config["offroad_penalty"] * (0 if self.vehicle.on_road else 1)
-        # print("Offroad Penalty", offroad_penalty)
+        subgoal_dist = self._compute_subgoal()
+        subgoal_reward  = self.config["subgoal_reward_ratio"] * \
+                            (self.max_target_dist - subgoal_dist) / self.max_target_dist
+                            
+        print("Subgoal", subgoal_reward)
 
         # Combine Rewards
-        reward = lane_centering_reward + action_reward \
-                + subgoal_reward + offroad_penalty \
+        reward = lane_centering_reward + action_reward + subgoal_reward \
                 + self.config["collision_reward"] * self.vehicle.crashed
+                
+        # Offroad Penalty
+        reward = self.config["offroad_penalty"] if not self.vehicle.on_road else reward
+        # print("Offroad Penalty", offroad_penalty)
         
         # Count Steps Spent Offroad for Early Stopping
         if not self.vehicle.on_road:
@@ -127,12 +129,11 @@ class RaceTrackEnv(AbstractEnv):
         else:
             self.offroad_counter = 0
         
-        # print("Unnormalised", reward)
+        print("Unnormalised", reward)
         
         # Map Rewards to 0 and 1 for Normalisation
-        max_reward = self.config["subgoal_reward_ratio"]
-        reward = utils.lmap(reward, [-1, max_reward], [0, 1])
-        # print("Total",reward,"\n")
+        reward = utils.lmap(reward, [-1, 2], [0, 1])
+        print("Total",reward)
         return reward
 
 
@@ -143,8 +144,8 @@ class RaceTrackEnv(AbstractEnv):
             self.offroad_counter == 20
 
 
-    def _subgoal_distance(self) -> int:
-        # Distance to subgoal (start of next road)
+    def _compute_subgoal(self, switched = False) -> int:
+        # Calculate Parameters for Subgoal Reward
         
         curr_lane_idx = self.vehicle.lane_index
         road = curr_lane_idx[:2]
@@ -154,6 +155,7 @@ class RaceTrackEnv(AbstractEnv):
         if self.agent_target in [None, road]:
             self.agent_current = curr_lane_idx[:2]
             self.agent_target = NEXT_ROAD[self.agent_current]
+            switched = True
             
         # Next Target is Next Road, Same Lane
         target_lane_idx = tuple(list(self.agent_target) + [lane])
@@ -162,8 +164,12 @@ class RaceTrackEnv(AbstractEnv):
             
         # Calculate Distance to Target
         squared_dist = np.square(self.vehicle.position - target_lane_pos)
-        dist = np.sqrt(np.sum(squared_dist))
-        # print("Target Distance", dist)
+        dist = np.sum(squared_dist)
+        
+        # Record Max Dist for Reward Calculation
+        if switched:
+            self.max_target_dist = dist
+
         return dist
     
     
