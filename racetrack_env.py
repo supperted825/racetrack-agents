@@ -110,8 +110,8 @@ class RaceTrackEnv(AbstractEnv):
         
         # Reward for Reducing Distance to Subgoal
         subgoal_dist = self._compute_subgoal()
-        subgoal_reward  = self.config["subgoal_reward_ratio"] * \
-                            (self.max_target_dist - subgoal_dist) / self.max_target_dist
+        subgoal_reward = self.config["subgoal_reward_ratio"] * \
+                        (self.max_target_dist - subgoal_dist) / self.max_target_dist
                             
         print("Subgoal", subgoal_reward)
 
@@ -133,7 +133,7 @@ class RaceTrackEnv(AbstractEnv):
         
         # Map Rewards to 0 and 1 for Normalisation
         reward = utils.lmap(reward, [-1, 2], [0, 1])
-        print("Total",reward)
+        print("Total",reward, "\n")
         return reward
 
 
