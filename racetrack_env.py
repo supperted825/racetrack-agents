@@ -53,11 +53,14 @@ class RaceTrackEnv(AbstractEnv):
         super().__init__(config)
         self.lane = None
         self.lanes = []
-        self.agent_current = None
-        self.agent_target = None
         self.trajectory = []
         self.interval_trajectory = []
         self.lpv = None
+        
+        # Variables for Rewards
+        self.agent_current = None
+        self.agent_target = None
+        self.offroad_counter = 0
 
 
     @classmethod
@@ -78,12 +81,11 @@ class RaceTrackEnv(AbstractEnv):
             "policy_frequency": 5,
 
             # Reward Values
-            "collision_reward": -5,
-            "lane_centering_cost": 4,
+            "collision_reward": -1,
+            "lane_centering_ratio": 1,
             "action_reward": -0.3,
             "offroad_penalty": -1,
-            "offroad_terminal": False,
-            "subgoal_reward": 3,
+            "subgoal_reward_ratio": 5,
 
             # Rendering Information
             "screen_width": 1000,
@@ -96,43 +98,69 @@ class RaceTrackEnv(AbstractEnv):
 
     def _reward(self, action: np.ndarray) -> float:
         
-        # Reward for Being Close to Current Lane Center
+        # Reward for Reducing Distance to Lane Center
         _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
-        lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
+        lane_centering_reward = self.config["lane_centering_ratio"] / (1+lateral**2)
         lane_centering_reward = lane_centering_reward if self._reward_lane_centering() else 0
+        # print("Laning", lane_centering_reward)
         
         # Reward for Minimizing Magnitude of Action
         action_reward = self.config["action_reward"]*np.linalg.norm(action)
+        # print("Action", action_reward)
         
-        # Reward for Reaching Subgoals
-        subgoal_reward = self.config["subgoal_reward"] * self._is_subgoal()
-        
+        # Reward for Reducing Distance to Subgoal
+        subgoal_reward = self.config["subgoal_reward_ratio"] / (1 + self._subgoal_distance())
+        # print("Subgoal", subgoal_reward)
+
+        # Offroad Penalty
+        offroad_penalty = self.config["offroad_penalty"] * (0 if self.vehicle.on_road else 1)
+        # print("Offroad Penalty", offroad_penalty)
+
         # Combine Rewards
-        reward = lane_centering_reward + subgoal_reward + action_reward \
-            + self.config["collision_reward"] * self.vehicle.crashed
+        reward = lane_centering_reward + subgoal_reward \
+                + action_reward + offroad_penalty \
+                + self.config["collision_reward"] * self.vehicle.crashed
+        # print("Total", reward, "\n")
+        
+        # Give Offroad Penalty only if Offroad
+        if not self.vehicle.on_road:
+            reward = self.config["offroad_penalty"]
+            self.offroad_counter += 1
+        else:
+            self.offroad_counter = 0
 
-        reward = reward if self.vehicle.on_road else self.config["collision_reward"]
-
-        return utils.lmap(reward, [self.config["collision_reward"], 1], [0, 1])
+        return reward
 
 
     def _is_terminal(self) -> bool:
         # Terminate episode if crashed, max steps exceeded or finished a lap ("i, a", max coords)
         return self.vehicle.crashed or self._is_goal() or \
-            self.steps >= self.config["duration"]
+            self.steps >= self.config["duration"] or \
+            self.offroad_counter == 20
 
 
-    def _is_subgoal(self) -> int:
-        # Reward Agent When Reaching Correct New Road.
-        agent_current = self.road.network.get_closest_lane_index(self.vehicle.position)[:2]
-        if not self.agent_target:
-            self.agent_target = NEXT_ROAD[agent_current]
-            return 0
-        elif self.agent_target != agent_current:
-            return 0
-        self.agent_current = self.agent_target
-        self.agent_target = NEXT_ROAD[agent_current]
-        return 1
+    def _subgoal_distance(self) -> int:
+        # Distance to subgoal (start of next road)
+        
+        curr_lane_idx = self.vehicle.lane_index
+        road = curr_lane_idx[:2]
+        lane = curr_lane_idx[2]
+        
+        # Reset Current & Target Roads
+        if self.agent_target in [None, road]:
+            self.agent_current = curr_lane_idx[:2]
+            self.agent_target = NEXT_ROAD[self.agent_current]
+            
+        # Next Target is Next Road, Same Lane
+        target_lane_idx = tuple(list(self.agent_target) + [lane])
+        target_lane     = self.road.network.get_lane(target_lane_idx)
+        target_lane_pos = target_lane.position(0,0)
+            
+        # Calculate Distance to Target
+        squared_dist = np.square(self.vehicle.position - target_lane_pos)
+        dist = np.sqrt(np.sum(squared_dist))
+        
+        return dist
     
     
     def _reward_lane_centering(self) -> int:
@@ -146,10 +174,13 @@ class RaceTrackEnv(AbstractEnv):
     def _is_goal(self) -> bool:
         # Goal is reached if the agent reaches the last stretch of road
         # Note: Lane_Index is a tuple (origin node, destination node, lane id on the road)
-        return self.vehicle.on_road and self.vehicle.lane_index[:2] is ["i","a"]
+        return self.vehicle.on_road and self.vehicle.lane_index[:2] == ["i","a"]
 
 
     def _reset(self) -> None:
+        self.agent_current = None
+        self.agent_target = None
+        self.offroad_counter = 0
         self._make_road()
         self._make_vehicles()
 
