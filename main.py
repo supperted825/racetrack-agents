@@ -57,7 +57,7 @@ class opts(object):
         # Problem Space Settings
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
-        self.parser.add_argument('--offroad_thres', default=5, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
+        self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
         self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn')
         self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
 
@@ -81,7 +81,7 @@ class opts(object):
         self.parser.add_argument('--min_replay_size', default=500, type=int, help='Minimum Memory Entries before Training')
 
         # PPO Hyperparameters
-        self.parser.add_argument('--gae_lambda', default=0.99, type=float, help='Generalised Advantage Estimate Lambda')
+        self.parser.add_argument('--gae_lambda', default=0.95, type=float, help='Generalised Advantage Estimate Lambda')
         self.parser.add_argument('--gae_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
@@ -94,19 +94,6 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
         return opt
-
-
-def generate_video(seq, name, folder="./videos"):
-    """Save Videos from Sequence of Images"""
-    for i in range(len(seq)):
-        plt.imshow(seq[i], cmap=cm.Greys_r)
-        plt.savefig(folder + "/tmp/file%02d.png" % i)
-
-    subprocess.call([
-        'ffmpeg', '-framerate', '8', '-i', 'file%02d.png',
-        '-r', '30', '-pix_fmt', 'yuv420p', '{}/{}.mp4'.format(folder, name)])
-    for file_name in glob.glob(folder + "/tmp/*.png"):
-        os.remove(file_name)
 
 
 def display_observations(obs):
@@ -198,14 +185,14 @@ if __name__ == "__main__":
     else:
         env = RaceTrackEnv(opt)
 
-    agent = GET_AGENT[opt.agent](opt=opt)
-
     # For Recording or Visualisation
     if opt.save_video:
         env = Monitor(env, './videos/', force=True)
 
     if opt.mode == "train":
-
+        
+        agent = GET_AGENT[opt.agent](opt=opt)
+        
         if opt.agent in ["DQN", "CDQN"]:
             trainDQN(env, agent, int(opt.num_episodes), opt)
         else:
@@ -228,15 +215,23 @@ if __name__ == "__main__":
 
         else:
             
-            for _ in range(200):
-                action = model.predict(np.array([obs])/255)[0]
-                obs, reward, done, info = env.step(action)
-                total_reward += reward
-                seq.append(env.render(mode="rgb_array"))
-                print(reward)
-            print("Total Reward: ", total_reward)
-            print("Saving Video...")
-            generate_video(seq, "result")
+            if opt.obs_dim[0] in [1,4]:
+            
+                for _ in range(200):
+                    action = model(np.array([obs])/255)[0]
+                    obs, reward, done, info = env.step(action)
+                    total_reward += reward
+                    print(reward)
+                print("Total Reward: ", total_reward)
+                
+            else:
+            
+                for _ in range(200):
+                    action = model(np.array([obs]))[0]
+                    obs, reward, done, info = env.step(action)
+                    total_reward += reward
+                    print(reward)
+                print("Total Reward: ", total_reward)
             
     elif opt.mode == "manual":
         
