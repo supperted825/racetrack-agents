@@ -34,13 +34,14 @@ class PPOAgent():
     def __init__(self, opt=None):
 
             # Configs & Hyperparameters
-            self.name = "{}_{}_{} Actions".format(opt.agent, opt.arch, opt.num_actions)
+            self.name = "{}_{}_{}Actions".format(opt.agent, opt.arch, opt.num_actions)
             self.lr = opt.lr
             self.epochs = opt.num_epochs
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
             self.memory_size = self.batch_size * 12
+            self.mode = opt.obs_dim[0]
 
             # PPO Hyperparameters
             self.GAE_GAMMA = opt.gae_gamma
@@ -154,7 +155,7 @@ class PPOAgent():
 
     def update_replay(self, step, obs, act, rew, done):
         """Record Stepwise Episode Information with Critic Output"""
-        self.replay_memory["obss"][step] = obs
+        self.replay_memory["obss"][step] = obs if self.mode == 2 else obs/255
         self.replay_memory["acts"][step] = act
         self.replay_memory["rews"][step] = rew
         self.replay_memory["mask"][step] = 0 if done else 1
@@ -269,6 +270,7 @@ class PPOAgent():
     def act(self, obs, optimal=False):
         """Get Action from Actor Network"""
         
+        obs = obs if self.mode == 2 else obs/255
         with tf.device('/cpu:0'):
             obs = np.expand_dims(obs, axis=0)
             feats = self.feature_extractor(obs, training=False)
