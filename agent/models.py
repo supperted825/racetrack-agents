@@ -72,6 +72,16 @@ def MLP(obs_shape):
 
     return model
 
+
+def Identity(obs_shape):
+    
+    model = Sequential()
+    model.add(Permute((3,2,1), input_shape=obs_shape))
+    model.add(Flatten())
+    
+    return model
+
+
 # For Retrieval of Architectures
 
 model_factory = {
@@ -79,6 +89,7 @@ model_factory = {
     "NatureCnn" : NatureCnn,
     "ConvLSTM"  : ConvLSTM,
     "MLP"       : MLP,
+    "Identity"  : Identity
 }
 
 def get_model(opt):
