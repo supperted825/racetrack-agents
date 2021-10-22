@@ -60,7 +60,7 @@ class RaceTrackEnv(AbstractEnv):
                 
             },
             
-            "spawn_vehicles": opt.spawn_vehicles
+            "spawn_vehicles": opt.spawn_vehicles,
             
         }
         
@@ -86,10 +86,7 @@ class RaceTrackEnv(AbstractEnv):
 
             # Other Vehicle Information
             "controlled_vehicles": 1,
-            "other_vehicles": 1,
-            "initial_lane_id": None,
             "ego_spacing": 2,
-            "vehicles_density": 1,
 
             # Simulation Information
             "duration": 200,
@@ -127,11 +124,9 @@ class RaceTrackEnv(AbstractEnv):
         # Reward for Reducing Distance to Subgoal
         subgoal_reward = self.config["subgoal_reward_ratio"] * \
                         (self.vehicle.lane.length - longitudinal) / self.vehicle.lane.length
-        subgoal_reward = subgoal_reward if self._reward_laning() else 0
         
         # Reward for Reducing Distance to Lane Center
         lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
-        lane_centering_reward = lane_centering_reward if self._reward_laning() else 0
 
         # Combine Rewards
         reward = lane_centering_reward + action_reward + subgoal_reward \
@@ -294,27 +289,16 @@ class RaceTrackEnv(AbstractEnv):
         ego_vehicle = self.action_type.vehicle_class(
             road, road.network.get_lane(("a", "b", 0)).position(0, 0),
             heading=road.network.get_lane(("a", "b", 0)).heading_at(0),
-            speed=8)
+            speed=9)
         
         ego_vehicle.MAX_SPEED = 10
 
         road.vehicles.append(ego_vehicle)
         self.controlled_vehicles.append(ego_vehicle)
 
-        # Populate the Environment with One Other Vehicle
-
-        if self.config["spawn_vehicles"] > 0:
-            vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
-                                            longitudinal=random.uniform(
-                                                low=0,
-                                                high=self.road.network.get_lane(("b", "c", 0)).length
-                                            ),
-                                            speed=6+random.uniform(high=3))
-            self.road.vehicles.append(vehicle)
-
-        # Other vehicles (if applicable)
-        for i in range(random.randint(self.config["other_vehicles"])):
-            random_lane_index = self.road.network.random_lane_index()
+        # Populate the Environment with A Number of Other Vehicles
+        for i in range(self.config["spawn_vehicles"]):
+            random_lane_index = self.road.network.random_lane_index(self.np_random)
             vehicle = IDMVehicle.make_on_lane(self.road, random_lane_index,
                                               longitudinal=random.uniform(
                                                   low=0,

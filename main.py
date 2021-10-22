@@ -51,7 +51,7 @@ class opts(object):
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
         self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
-        self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn')
+        self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn, Set 0 to Disable')
         self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
 
         # Experiment Settings
