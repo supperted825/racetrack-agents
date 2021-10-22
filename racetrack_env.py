@@ -33,24 +33,33 @@ class RaceTrackEnv(AbstractEnv):
         config = {
             
             "observation": {
-                # "type": "GrayscaleObservation",
-                # "observation_shape": tuple(opt.obs_dim[-2:]),
-                # "stack_size": opt.obs_dim[0],
-                # "weights": [0.2989, 0.5870, 0.1140],
-                # "scaling": 1.75,
+                
                 "type": "OccupancyGrid",
                 "features": ['presence', 'on_road'],
                 "grid_size": [[-18, 18], [-18, 18]],
                 "grid_step": [1, 1],
                 "as_image": False,
                 "align_to_vehicle_axes": True
+                
+            } if opt.obs_dim[0] == 2 else {
+                
+                "type": "GrayscaleObservation",
+                "observation_shape": tuple(opt.obs_dim[-2:]),
+                "stack_size": opt.obs_dim[0],
+                "weights": [0.2989, 0.5870, 0.1140],
+                "scaling": 1.75
+                
             },
+            
             "action": {
+                
                 "type": "ContinuousAction",
                 "longitudinal": False if opt.num_actions < 2 else True,
                 "lateral": True,
                 "dynamical": False
+                
             },
+            
             "spawn_vehicles": opt.spawn_vehicles
             
         }
