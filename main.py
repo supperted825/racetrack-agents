@@ -243,4 +243,3 @@ if __name__ == "__main__":
             obs, reward, done, _ = env.step(env.action_space.sample())
             total_reward += reward
         print("Total Reward: ", total_reward)
-        
