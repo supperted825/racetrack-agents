@@ -12,7 +12,6 @@ tfd = tfp.distributions
 import os
 import sys
 import csv
-import random
 import numpy as np
 import datetime
 import logging
@@ -21,13 +20,12 @@ from .models import get_model
 
 
 """PPO Pseudocode"""
-# Initial policy parameters and initial function value parameters
-#     for episode, do:
-#         collect trajectories by running policy in environment
-#         compute returns
-#         compute advantage estimates based on current value function
-#         update policy by maximizing PPO clip objective via Adam
-#         fit value function by regression with mse error via Adam
+# Initial Policy Parameters and Initial Value Function parameters
+#     For Num Steps, Do:
+#         Collect Trajectories by Running Policy in Environment for n Steps
+#         Compute Advantages & Return Estimates with Value Function
+#         Update Policy by Maximizing PPO-clip Objective via Adam
+#         Update Value Function by Regression with MSE error via Adam
 
 
 class PPOAgent():
@@ -98,12 +96,12 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.01)))
-            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.1)))
+            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(0.01)))
+            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(1)))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-        self.critic_network.add(Dense(1, kernel_initializer=Orthogonal(0.1)))
+        self.critic_network.add(Dense(1, activation='tanh', kernel_initializer=Orthogonal(1)))
         
         # Generate Passes & Compile Model
         feats = self.feature_extractor(obs)
