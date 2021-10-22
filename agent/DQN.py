@@ -18,10 +18,11 @@ class DQNAgent(object):
     def __init__(self, opt=None):
 
         # Configs & Hyperparameters
-        self.name = "{}_{}_{} Actions".format(opt.agent, opt.arch, opt.num_actions)
+        self.name = "{}_{}_{}Actions".format(opt.agent, opt.arch, opt.num_actions)
         self.lr = opt.lr
         self.batch_size = opt.batch_size
         self.num_actions = opt.num_actions
+        self.mode = opt.obs_dim[0]
 
         # DQN Hyperparameters
         self.GAMMA = opt.dqn_gamma
@@ -100,7 +101,10 @@ class DQNAgent(object):
 
     def get_qvalues(self, state):
         """Get Q Value Outputs from Target Model"""
-        return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
+        if self.mode == 2:
+            return self.target_model.predict(np.array(state).reshape(-1, *state.shape))[0]
+        else:
+            return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
 
 
     def train(self, terminal_state):
@@ -113,10 +117,14 @@ class DQNAgent(object):
         # Sample Batch of Data for Updating Model
         minibatch = random.sample(self.replay_memory, self.batch_size)
 
-        current_states = np.array([item[0] for item in minibatch])/255
+        if self.mode == 2:
+            current_states = np.array([item[0] for item in minibatch])
+            new_current_states = np.array([item[3] for item in minibatch])
+        else:
+            current_states = np.array([item[0] for item in minibatch])/255
+            new_current_states = np.array([item[3] for item in minibatch])/255
+        
         current_qvalues = self.model.predict(current_states)
-
-        new_current_states = np.array([item[3] for item in minibatch])/255
         future_qvalues = self.model.predict(new_current_states)
 
         x, y = [], []
@@ -136,10 +144,16 @@ class DQNAgent(object):
             x.append(current_state)
             y.append(current_qvalue)
 
-        self.model.fit(
-            np.array(x)/255, np.array(y),
-            batch_size=self.batch_size, verbose=0,
-            shuffle=False if terminal_state else None)
+        if self.mode == 2:
+            self.model.fit(
+                np.array(x), np.array(y),
+                batch_size=self.batch_size, verbose=0,
+                shuffle=False if terminal_state else None)
+        else:
+            self.model.fit(
+                np.array(x)/255, np.array(y),
+                batch_size=self.batch_size, verbose=0,
+                shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1
@@ -159,11 +173,15 @@ class CDQNAgent(DQNAgent):
             return
         
         minibatch = random.sample(self.replay_memory, self.batch_size)
+        
+        if self.mode == 2:
+            current_states = np.array([item[0] for item in minibatch])
+            new_current_states = np.array([item[3] for item in minibatch])
+        else:
+            current_states = np.array([item[0] for item in minibatch])/255
+            new_current_states = np.array([item[3] for item in minibatch])/255
 
-        current_states = np.array([item[0] for item in minibatch])/255
         current_qvalues = self.model.predict(current_states)
-
-        new_current_states = np.array([item[3] for item in minibatch])/255
         new_current_qvalues = self.model.predict(new_current_states)
         new_future_qvalues = self.target_model.predict(new_current_states)
 
@@ -184,10 +202,16 @@ class CDQNAgent(DQNAgent):
             x.append(current_state)
             y.append(current_qvalue)
 
-        self.model.fit(
-            np.array(x)/255, np.array(y),
-            batch_size=self.batch_size, verbose=0,
-            shuffle=False if terminal_state else None)
+        if self.mode == 2:
+            self.model.fit(
+                np.array(x), np.array(y),
+                batch_size=self.batch_size, verbose=0,
+                shuffle=False if terminal_state else None)
+        else:
+            self.model.fit(
+                np.array(x)/255, np.array(y),
+                batch_size=self.batch_size, verbose=0,
+                shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1
