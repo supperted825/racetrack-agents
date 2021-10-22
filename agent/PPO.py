@@ -361,7 +361,7 @@ class PPOAgent():
                     
                     # Compute Respective Losses
                     c_loss = self.critic_loss(v_pred, rets)
-                    a_loss, new_log_probs = self.PPO_loss(a_pred, acts, prbs, advs)
+                    a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
                     
                     # Entropy Bonus
                     e_loss = - self.ENTROPY * entropy
@@ -393,7 +393,7 @@ class PPOAgent():
 
 
     @tf.function
-    def PPO_loss(self, y_pred, acts, old_log_probs, advs):
+    def ppo_loss(self, y_pred, acts, old_log_probs, advs):
         """PPO-Clip Loss for Actor"""
         
         # Get New Distributions & Log Probabilities of Actions

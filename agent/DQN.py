@@ -131,7 +131,7 @@ class DQNAgent(object):
 
         for index, (current_state, action, reward, _, done) in enumerate(minibatch):
 
-            # Q Value is Reward if Terminal, otherwise we use G
+            # Q Value is Reward if Terminal, otherwise we use Return
             if not done:
                 new_qvalue = reward + self.GAMMA * np.max(future_qvalues[index])
             else:
