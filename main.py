@@ -6,18 +6,11 @@ import argparse
 import numpy as np
 import tensorflow.keras as keras
 
-import os
 import gym
-import glob
-import logging
-import subprocess
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-
-logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 GET_AGENT = {
