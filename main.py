@@ -6,18 +6,11 @@ import argparse
 import numpy as np
 import tensorflow.keras as keras
 
-import os
 import gym
-import glob
-import logging
-import subprocess
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-
-logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 GET_AGENT = {
@@ -58,7 +51,7 @@ class opts(object):
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
         self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
-        self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn')
+        self.parser.add_argument('--spawn_vehicles', default=1, type=int, help='Number of Non-Agent Vehicles to Spawn, Set 0 to Disable')
         self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
 
         # Experiment Settings
