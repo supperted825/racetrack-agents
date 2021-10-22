@@ -1,6 +1,7 @@
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.initializers import Orthogonal
 
 import tensorflow as tf
 import tensorflow.keras as K
@@ -41,6 +42,7 @@ class PPOAgent():
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
+            self.memory_size = self.batch_size * 12
 
             # PPO Hyperparameters
             self.GAE_GAMMA = opt.gae_gamma
@@ -58,9 +60,10 @@ class PPOAgent():
             self.total_steps = 0
             self.best = 0
             self.num_updates = 0
-            self.kl_div = 0
-            self.replay_memory = {
-                "obss" : [], "acts" : [], "rews" : [], "mask" : []}
+            self.losses = []
+            
+            # Initialise Replay Memory Buffer
+            self.reset_memory()
 
             # Manage Logging Properties
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
@@ -95,12 +98,12 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='relu'))
-            self.critic_network.add(Dense(opt.fc_width, activation='relu'))
+            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.01)))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.1)))
 
         # Add Final Output Layers to Each Head
-        self.actor_network.add(Dense(self.num_actions, activation='tanh'))
-        self.critic_network.add(Dense(1))
+        self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
+        self.critic_network.add(Dense(1, kernel_initializer=Orthogonal(0.1)))
         
         # Generate Passes & Compile Model
         feats = self.feature_extractor(obs)
@@ -120,19 +123,43 @@ class PPOAgent():
             write = csv.writer(file)
             write.writerow(line)
 
+    
+    def callback(self, avg_reward, avg_ep_len):
+        """Write Training Information to Console"""
+        
+        logging.info(40*"-")
+        logging.info(f"Total Steps: {self.total_steps}")
+        logging.info(f"Average Reward: {avg_reward:.3f}")
+        logging.info(f"Average Episode Length: {avg_ep_len:.3f}")
+        logging.info(f"Num. Model Updates: {self.num_updates}")
+        
+        if len(self.losses) > 0:
+            logging.info(f"Total Loss: {np.mean(self.losses):.5f}")
+            logging.info(f"Actor Loss: {np.mean(self.a_losses):.5f}")
+            logging.info(f"Critic Loss: {np.mean(self.c_losses):.5f}")
+            logging.info(f"Entropy Loss: {np.mean(self.e_losses):.5f}")
+            logging.info(f"Approx KL Div: {np.mean(self.kl_divs):.3f}")
+            
+        logging.info(40*"-")
 
-    def clear_memory(self):
+
+    def reset_memory(self):
         """Reset Agent Replay Memory Buffer"""
-        for key in self.replay_memory.keys():
-            self.replay_memory[key] = []
+        self.replay_memory = {
+            "obss" : np.zeros((self.memory_size, *self.obs_dim,)),
+            "acts" : np.zeros((self.memory_size, self.num_actions,)),
+            "rews" : np.zeros(self.memory_size),
+            "mask" : np.zeros(self.memory_size)
+        }
+        self.last_vals = np.zeros((self.memory_size+1))
 
 
-    def update_replay(self, obs, act, rew, done):
+    def update_replay(self, step, obs, act, rew, done):
         """Record Stepwise Episode Information with Critic Output"""
-        self.replay_memory["obss"].append(obs)
-        self.replay_memory["acts"].append(act)
-        self.replay_memory["rews"].append(rew)
-        self.replay_memory["mask"].append(0 if done else 1)
+        self.replay_memory["obss"][step] = obs
+        self.replay_memory["acts"][step] = act
+        self.replay_memory["rews"][step] = rew
+        self.replay_memory["mask"][step] = 0 if done else 1
     
 
     def process_replay(self, mem):
@@ -141,41 +168,39 @@ class PPOAgent():
         # Calculate Values & Log Probs
         vals, prbs = self.evaluate(mem["obss"], mem["acts"])
 
-        # If Last Entry is Terminal State, Use Reward else V(s)
-        if mem["mask"][-1] == 1:
-            last_val = mem["rews"][-1]
-        else:
-            last_val = vals[-1]
-        
         last_adv = 0
         g = self.GAE_GAMMA
         l = self.GAE_LAMBDA
 
         # Initialise Return Arrays with Appropriate Shapes
-        obss = np.empty((len(mem["obss"]), *self.obs_dim))
-        acts = np.empty((len(mem["obss"]), self.num_actions))
-        advs = np.empty((len(mem["obss"]),))
-        rets = np.empty((len(mem["obss"]),))
+        advs = np.empty((self.memory_size,))
+        rets = np.empty((self.memory_size,))
         
-        for idx, value in enumerate(reversed(vals)):
-            reward = mem["rews"][-idx]
-            mask = mem["mask"][-idx]
-
+        for idx in reversed(range(len(vals))):
+            
+            # Prepare Variables for this Step
+            reward = mem["rews"][idx]
+            mask = mem["mask"][idx]
+            value = vals[idx]
+            
+            # Retrieve Next Step Value
+            if mask == 0:
+                last_val = self.last_vals[idx+1]
+            else:
+                last_val = vals[idx+1]
+            
             # Calculate Return & Advantage
             delta = reward + g * last_val * mask - value
             adv = delta + g * l * last_adv * mask
             ret = value + adv
 
             # Append to Output Arrays
-            obss[-idx-1] = mem["obss"][-idx-1]
-            acts[-idx-1] = mem["acts"][-idx-1]
-            advs[-idx-1] = adv
-            rets[-idx-1] = ret
+            advs[idx] = adv
+            rets[idx] = ret
 
-            last_val = value if mask == 1 else ret
             last_adv = adv
-
-        return obss, acts, advs, rets, prbs
+        
+        return mem["obss"], mem["acts"], advs, rets, prbs
 
 
     def collect_rollout(self, env, opt):
@@ -184,37 +209,45 @@ class PPOAgent():
         # For Logging of Agent Performance
         ep_rewards = []
         ep_lengths = []
-        rollout_steps = self.batch_size * 12
         num_steps = 0
 
-        while num_steps < rollout_steps:
+        while num_steps != self.memory_size - 1:
 
             steps, done = 0, False
-            obs = env.reset() if not opt.debug == 2 else env.reset().T
+            last_obs = env.reset() if not opt.debug == 2 else env.reset().T
             ep_reward = 0
 
-            while not done:
+            while True:
 
                 # Get Action & Step Environment
-                action = self.act(obs)
-                obs, reward, done, _ = env.step(action)
+                action = self.act(last_obs)
+                new_obs, reward, done, _ = env.step(action)
 
-                # Update Replay Memory
                 if opt.debug == 2:
-                    obs = obs.T 
-                self.update_replay(obs, action, reward, done)
-
+                    obs = obs.T
+                
+                # Break Early if Rollout has Been Filled, Mark Step as End
+                if done or num_steps == self.memory_size - 1:
+                    done = True
+                    self.update_replay(num_steps, last_obs, action, reward, done)
+                    break
+                
+                self.update_replay(num_steps, last_obs, action, reward, done)
+                last_obs = new_obs
+                
                 # Increment Step Counters
                 steps += 1
                 num_steps += 1
                 ep_reward += reward
-                if num_steps == rollout_steps:
-                    break
-        
-            ep_lengths.append(steps)
+            
+            # Calculate Last Value for Finished Episode
+            new_obs = np.expand_dims(new_obs, axis=0)
+            self.last_vals[num_steps] = self.critic_network(self.feature_extractor(new_obs, training=False)).numpy()
+
+            ep_lengths.append(steps+1)
             ep_rewards.append(ep_reward)
         
-        self.total_steps += rollout_steps
+        self.total_steps += num_steps + 1
 
         # Log Memory Buffer Information & Write to CSV
         avg_ep_len = np.mean(ep_lengths)
@@ -223,13 +256,7 @@ class PPOAgent():
         max_reward = np.max(ep_rewards)
 
         # Show Training Progress on Console
-        logging.info(40*"-")
-        logging.info(f"Total Steps: {self.total_steps}")
-        logging.info(f"Average Reward: {avg_reward:.3f}")
-        logging.info(f"Average Episode Length: {avg_ep_len:.3f}")
-        logging.info(f"Num. Model Updates: {self.num_updates}")
-        logging.info(f"Previous KL Div: {self.kl_div:.3f}")
-        logging.info(40*"-")
+        self.callback(avg_reward, avg_ep_len)
 
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
 
@@ -245,7 +272,7 @@ class PPOAgent():
         """Get Action from Actor Network"""
         
         with tf.device('/cpu:0'):
-            obs = np.expand_dims(obs/255, axis=0)
+            obs = np.expand_dims(obs, axis=0)
             feats = self.feature_extractor(obs, training=False)
             action = self.actor_network(feats)
 
@@ -256,7 +283,7 @@ class PPOAgent():
         """Produce Values & Log Probabilties for Given Batch of Observations"""
 
         # Predict Value & Prepare Action Outputs
-        obss = np.array(obss)/255
+        obss = np.array(obss)
         feats = self.feature_extractor(obss, training=False)
         vals = self.critic_network(feats).numpy()
         acts = np.expand_dims(np.array(acts).flatten(), axis=0)
@@ -288,22 +315,32 @@ class PPOAgent():
 
         # Process Returns & Advantages for Buffer Info
         buffer_obss, buffer_acts, buffer_advs, buffer_rets, buffer_prbs = self.process_replay(self.replay_memory)
+        
+        # Generate Indices for Sampling
+        ind = np.random.permutation(self.memory_size)
+        
+        # Train Logging
+        self.losses = []
+        self.e_losses = []
+        self.a_losses = []
+        self.c_losses = []
+        self.kl_divs = []
 
         for epoch in range(self.epochs):
-            
-            # logging.info(f"Epoch {epoch}: KL Divergence of {self.kl_div:.3f}")
             
             for batch_idx in range(0, len(buffer_obss), self.batch_size): 
 
                 # Go Through Buffer Batch Size at a Time
-                obss = buffer_obss[batch_idx:batch_idx + self.batch_size]
-                acts = buffer_acts[batch_idx:batch_idx + self.batch_size]
-                advs = buffer_advs[batch_idx:batch_idx + self.batch_size]
-                rets = buffer_rets[batch_idx:batch_idx + self.batch_size]
-                prbs = buffer_prbs[batch_idx:batch_idx + self.batch_size]
+                obss = buffer_obss[ind[batch_idx:batch_idx + self.batch_size]]
+                acts = buffer_acts[ind[batch_idx:batch_idx + self.batch_size]]
+                advs = buffer_advs[ind[batch_idx:batch_idx + self.batch_size]]
+                rets = buffer_rets[ind[batch_idx:batch_idx + self.batch_size]]
+                prbs = buffer_prbs[ind[batch_idx:batch_idx + self.batch_size]]
                 
-                # Normalise Advantages & Reshape with Log Probs as Single Batch
-                advs = (advs - advs.mean()) / (advs.std() + 1e-10)
+                # Normalise Advantages
+                advs = (advs - advs.mean()) / (advs.std() + 1e-8)
+                
+                # Reshape Advantages with Log Probs as Single Batch
                 advs = np.expand_dims(advs, axis=1)
                 prbs = np.expand_dims(prbs, axis=1)
                 
@@ -320,33 +357,43 @@ class PPOAgent():
                 with tf.GradientTape() as tape:
                     
                     # Run Forward Passes on Models
-                    a_pred, v_pred = self.policy([obss/255], training=True)
+                    a_pred, v_pred = self.policy([obss], training=True)
                     
                     # Compute Respective Losses
                     c_loss = self.critic_loss(v_pred, rets)
-                    a_loss, ratios = self.PPO_loss(a_pred, acts, prbs, advs, entropy)
+                    a_loss, new_log_probs = self.PPO_loss(a_pred, acts, prbs, advs)
                     
-                    tot_loss = 0.5 * c_loss + a_loss
-
+                    # Entropy Bonus
+                    e_loss = - self.ENTROPY * entropy
+                    
+                    tot_loss = 0.5 * c_loss + a_loss + e_loss
+                
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
                 gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
                 # Compute KL Divergence for Early Stopping
-                self.kl_div = tf.reduce_mean((tf.math.exp(ratios) - 1) - ratios).numpy()
+                kl_div = 0.5 * tf.reduce_mean(tf.square(new_log_probs - prbs))
 
                 if self.TARGET_KL != None and self.kl_div > self.TARGET_KL:
                     logging.info(f"Early stopping at epoch {epoch+1} due to reaching max kl: {self.kl_div:.3f}")
                     break
                 
+                # Logging
+                self.losses.append(tot_loss.numpy())
+                self.e_losses.append(e_loss.numpy())
+                self.a_losses.append(a_loss.numpy())
+                self.c_losses.append(c_loss.numpy())
+                self.kl_divs.append(kl_div)
+                
                 self.num_updates += 1
         
-        self.clear_memory()
+        self.reset_memory()
 
 
     @tf.function
-    def PPO_loss(self, y_pred, acts, old_log_probs, advs, entropy):
+    def PPO_loss(self, y_pred, acts, old_log_probs, advs):
         """PPO-Clip Loss for Actor"""
         
         # Get New Distributions & Log Probabilities of Actions
@@ -360,11 +407,8 @@ class PPOAgent():
         loss1 = advs * ratios
         loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
         actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
-
-        # Entropy Bonus
-        entropy_loss = - self.ENTROPY * entropy
-
-        return actor_loss + entropy_loss, ratios
+        
+        return actor_loss, new_log_probs
     
     
     @tf.function
@@ -373,5 +417,3 @@ class PPOAgent():
         critic_loss = tf.math.squared_difference(rets, y_pred)
         critic_loss = tf.math.reduce_mean(critic_loss)
         return critic_loss
-        
-    
