@@ -81,6 +81,12 @@ class PPOAgent():
                 args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
                 for k, v in sorted(args.items()):
                     file.write('  %s: %s\n' % (str(k), str(v)))
+                    
+            # Load Last Model if Resume is Specified
+            if opt.resume:
+                weights2load = K.models.load_model(f'{opt.exp_dir}/last_best.model').get_weights()
+                self.policy.set_weights(weights2load)
+                logging.info("Loaded Weights from Last Best Model!")
 
 
     def create_model(self, opt):
@@ -375,8 +381,8 @@ class PPOAgent():
                 # Compute KL Divergence for Early Stopping
                 kl_div = 0.5 * tf.reduce_mean(tf.square(new_log_probs - prbs))
 
-                if self.TARGET_KL != None and self.kl_div > self.TARGET_KL:
-                    logging.info(f"Early stopping at epoch {epoch+1} due to reaching max kl: {self.kl_div:.3f}")
+                if self.TARGET_KL != None and kl_div > self.TARGET_KL:
+                    logging.info(f"Early stopping at epoch {epoch+1} due to reaching max kl: {kl_div:.3f}")
                     break
                 
                 # Logging
