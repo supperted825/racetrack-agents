@@ -40,6 +40,7 @@ class opts(object):
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
         self.parser.add_argument('--exp_id', default='default', help='Unique Experiment Name for Saving Logs & Models')
         self.parser.add_argument('--debug', default=0, type=int, help='Test Algo with (1) HighwayEnv Implementation, (2) OpenAI Gym')
+        self.parser.add_argument('--resume', action='store_true', help='Whether to Load Last Model for Further Training')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
         self.parser.add_argument('--save_video', action='store_true', help='Saves Env Render as Video')
