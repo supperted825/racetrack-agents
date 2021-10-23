@@ -1,6 +1,6 @@
 from tensorflow.keras.initializers import Orthogonal
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten, Permute, LSTM, Reshape
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Activation, Flatten, Permute, LSTM, Reshape
 
 # Various Neural Network Architectures are Defined Here
 
@@ -12,12 +12,10 @@ def DoubleConv(obs_shape):
     model.add(Conv2D(256,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
-    model.add(Dropout(0.2))
 
     model.add(Conv2D(256,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
-    model.add(Dropout(0.2))
 
     model.add(Flatten())
 
