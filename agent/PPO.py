@@ -103,12 +103,12 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(1)))
+            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.01)))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(1)))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-        self.critic_network.add(Dense(1, activation='tanh', kernel_initializer=Orthogonal(1)))
+        self.critic_network.add(Dense(1, kernel_initializer=Orthogonal(1)))
         
         # Generate Passes & Compile Model
         feats = self.feature_extractor(obs)
