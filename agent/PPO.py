@@ -66,7 +66,7 @@ class PPOAgent():
 
             # Manage Logging Properties
             time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-            self.logdir = f"logs/{self.name}-{time}"
+            self.logdir = f"{opt.exp_dir}/log_{time}"
             os.mkdir(self.logdir)
             
             # Python Logging Gives Easier-to-read Outputs
@@ -77,7 +77,7 @@ class PPOAgent():
                 write = csv.writer(file)
                 write.writerow(['Total Steps', 'Avg Reward', 'Min Reward', 'Max Reward', 'Avg Ep Length'])
             
-            with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
+            with open(self.exp_dir + '/opt.txt', 'w+', newline ='') as file:
                 args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
                 for k, v in sorted(args.items()):
                     file.write('  %s: %s\n' % (str(k), str(v)))
@@ -110,7 +110,6 @@ class PPOAgent():
         value_output = self.critic_network(feats)
         
         model = Model(inputs=[obs], outputs=[action_output,value_output])
-        model.summary()
         
         return model
 
@@ -262,7 +261,7 @@ class PPOAgent():
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
         if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
-            self.policy.save(f'models/{self.name}_best.model')
+            self.policy.save(f'{opt.exp_dir}/last_best.model')
         
         return ep_rewards, ep_lengths
 
