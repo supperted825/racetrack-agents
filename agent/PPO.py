@@ -77,7 +77,7 @@ class PPOAgent():
                 write = csv.writer(file)
                 write.writerow(['Total Steps', 'Avg Reward', 'Min Reward', 'Max Reward', 'Avg Ep Length'])
             
-            with open(self.exp_dir + '/opt.txt', 'w+', newline ='') as file:
+            with open(opt.exp_dir + '/opt.txt', 'w+', newline ='') as file:
                 args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
                 for k, v in sorted(args.items()):
                     file.write('  %s: %s\n' % (str(k), str(v)))
