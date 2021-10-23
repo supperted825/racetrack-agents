@@ -9,11 +9,11 @@ def DoubleConv(obs_shape):
     model = Sequential()
 
     model.add(Permute((3,2,1), input_shape=obs_shape))
-    model.add(Conv2D(256,(3,3)))
+    model.add(Conv2D(64,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
 
-    model.add(Conv2D(256,(3,3)))
+    model.add(Conv2D(64,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
 
@@ -46,12 +46,10 @@ def ConvLSTM(obs_shape):
     model.add(Conv2D(256,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
-    model.add(Dropout(0.2))
 
     model.add(Conv2D(256,(3,3)))
     model.add(Activation("relu"))
     model.add(MaxPooling2D(2,2))
-    model.add(Dropout(0.2))
 
     model.add(Reshape((256,-1)))
 
