@@ -373,17 +373,17 @@ class PPOAgent():
                     
                     tot_loss = 0.5 * c_loss + a_loss + e_loss
                 
-                # Compute Gradients & Apply to Model
-                gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
-                gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
-                self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
-                
-                # Compute KL Divergence for Early Stopping
+                # Compute KL Divergence for Early Stopping Before Backprop
                 kl_div = 0.5 * tf.reduce_mean(tf.square(new_log_probs - prbs))
 
                 if self.TARGET_KL != None and kl_div > self.TARGET_KL:
                     logging.info(f"Early stopping at epoch {epoch+1} due to reaching max kl: {kl_div:.3f}")
                     break
+                
+                # Compute Gradients & Apply to Model
+                gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
+                gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
+                self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
                 # Logging
                 self.losses.append(tot_loss.numpy())
