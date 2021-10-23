@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import tensorflow.keras as keras
 
+import os
 import gym
 import matplotlib.pyplot as plt
 
@@ -37,6 +38,7 @@ class opts(object):
         # Configuration Settings
         self.parser.add_argument('--mode', default='train', help='Train, Test, Manual')
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
+        self.parser.add_argument('--exp_id', default='default', help='Unique Experiment Name for Saving Logs & Models')
         self.parser.add_argument('--debug', default=0, type=int, help='Test Algo with (1) HighwayEnv Implementation, (2) OpenAI Gym')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
@@ -57,7 +59,7 @@ class opts(object):
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
-        self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
+        self.parser.add_argument('--min_reward', default=100, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
         self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
@@ -86,6 +88,11 @@ class opts(object):
             opt = self.parser.parse_args()
         else:
             opt = self.parser.parse_args(args)
+            
+        opt.exp_dir = f"./logs/{opt.exp_id}"
+        if not os.path.exists(opt.exp_dir):
+            os.mkdir(opt.exp_dir)
+
         return opt
 
 
@@ -147,7 +154,7 @@ def trainDQN(env, agent, num_episodes, opt):
             # Save Model if Average Reward is Greater than a Minimum & Better than Before
             if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
                 best = avg_reward
-                agent.model.save(f'models/{agent.name}_best.model')
+                agent.model.save(f'{opt.exp_dir}/last_best.model')
 
         """
         # Decay Epsilon

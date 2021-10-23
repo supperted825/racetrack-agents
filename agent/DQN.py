@@ -44,14 +44,14 @@ class DQNAgent(object):
         time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
         # self.writer = tf.summary.create_file_writer(logdir=f"logs/{self.name}-{time}")
 
-        self.logdir = f"logs/{self.name}-{time}"
+        self.logdir = f"{opt.exp_dir}/log_{time}"
         os.mkdir(self.logdir)
 
         with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
             write = csv.writer(file)
             write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
-        with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
+        with open(self.exp_dir + '/opt.txt', 'w+', newline ='') as file:
             args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
             for k, v in sorted(args.items()):
                 file.write('  %s: %s\n' % (str(k), str(v)))
