@@ -1,6 +1,7 @@
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.initializers import Orthogonal
 
 import tensorflow as tf
@@ -41,6 +42,7 @@ class PPOAgent():
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
             self.memory_size = 2048
+            self.target_steps = 200 * opt.num_episodes
             self.mode = opt.obs_dim[0]
 
             # PPO Hyperparameters
@@ -53,7 +55,10 @@ class PPOAgent():
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
-            self.optimizer = Adam(learning_rate=self.lr)
+            lr_schedule = ExponentialDecay(initial_learning_rate=self.lr,
+                                           decay_steps=100,
+                                           decay_rate=0.9)
+            self.optimizer = Adam(learning_rate=lr_schedule)
 
             # Variables to Track Training Progress & Experience Replay Buffer
             self.total_steps = 0
@@ -103,8 +108,8 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(0.01)))
-            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(1)))
+            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
@@ -299,18 +304,11 @@ class PPOAgent():
 
         return vals, log_probs
 
-
-    def compute_entropy(self, acts):
-        """Compute Distribution Entropy for Entropy Loss"""
-        dist = tfd.Normal(np.array(acts), self.ACTOR_SIGMA)
-        entropy = tf.math.reduce_mean(dist.entropy())
-        return entropy
-    
     
     def learn(self, env, opt):
         """Run Rollout & Training Sequence"""
         
-        while self.total_steps < 200 * opt.num_episodes:
+        while self.total_steps < self.target_steps:
             self.collect_rollout(env, opt)
             self.train()    
     
@@ -348,10 +346,6 @@ class PPOAgent():
                 # Reshape Advantages with Log Probs as Single Batch
                 advs = np.expand_dims(advs, axis=1)
                 prbs = np.expand_dims(prbs, axis=1)
-                
-                # Compute Entropy for Entropy Loss
-                entropy = self.compute_entropy(acts)
-                entropy = tf.cast(entropy, dtype=tf.float32)
 
                 # Cast Constant Inputs to Tensors
                 acts = tf.constant(acts, tf.float32)
@@ -366,7 +360,7 @@ class PPOAgent():
                     
                     # Compute Respective Losses
                     c_loss = self.critic_loss(v_pred, rets)
-                    a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
+                    a_loss, entropy, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
                     
                     # Entropy Bonus
                     e_loss = - self.ENTROPY * entropy
@@ -383,6 +377,9 @@ class PPOAgent():
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
                 gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
+                
+                # learning_rate = (1 - self.total_steps / self.target_steps + 5e-8) * self.lr
+                # self.optimizer.lr.assign(learning_rate)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
                 # Logging
@@ -404,6 +401,9 @@ class PPOAgent():
         # Get New Distributions & Log Probabilities of Actions
         new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
         new_log_probs = new_dist.log_prob(acts)
+        
+        # Entropy of New Distribution
+        entropy = new_dist.entropy()
 
         # Calculate Ratio Between Old & New Policy
         ratios = tf.math.exp(new_log_probs - old_log_probs)
@@ -413,7 +413,7 @@ class PPOAgent():
         loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
         actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
         
-        return actor_loss, new_log_probs
+        return actor_loss, entropy, new_log_probs
     
     
     @tf.function
