@@ -55,8 +55,7 @@ class PPOAgent():
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
-            lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.batch_size * self.epochs,
-                                          end_learning_rate=0, cycle=False)
+            lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.batch_size * self.epochs, end_learning_rate=0)
             self.optimizer = Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
