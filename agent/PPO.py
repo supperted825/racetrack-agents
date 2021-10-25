@@ -1,7 +1,7 @@
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers.schedules import ExponentialDecay
+from tensorflow.keras.optimizers.schedules import PolynomialDecay, ExponentialDecay
 from tensorflow.keras.initializers import Orthogonal
 
 import tensorflow as tf
@@ -55,10 +55,9 @@ class PPOAgent():
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
-            lr_schedule = ExponentialDecay(initial_learning_rate=self.lr,
-                                           decay_steps=100,
-                                           decay_rate=0.9)
-            self.optimizer = Adam(learning_rate=lr_schedule)
+            lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.batch_size * self.epochs,
+                                          end_learning_rate=0, cycle=False)
+            self.optimizer = Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
             self.total_steps = 0

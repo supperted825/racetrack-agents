@@ -64,6 +64,7 @@ class opts(object):
 
         # Hyperparameters
         self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
+        self.parser.add_argument('--lr_decay', actopm='store_true', help='Whether to Decay Learning Rate')
         self.parser.add_argument('--batch_size', default=64, type=int, help='Policy Update Batch Size')
         self.parser.add_argument('--num_epochs', default=10, type=int, help='Num Epochs for Policy Gradient')
 
