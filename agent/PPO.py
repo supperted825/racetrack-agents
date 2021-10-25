@@ -274,7 +274,8 @@ class PPOAgent():
             self.best = avg_reward
             self.policy.save(f'{opt.exp_dir}/last_best.model')
         
-        return ep_rewards, ep_lengths
+        if self.best > 100 and self.TARGET_KL == None:
+            self.TARGET_KL = 0.01
 
 
     def act(self, obs, optimal=False):
