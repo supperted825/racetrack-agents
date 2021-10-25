@@ -552,7 +552,7 @@ class RaceTrackEnv2(AbstractEnv):
                                                   low=0,
                                                   high=self.road.network.get_lane(random_lane_index).length
                                               ),
-                                              speed=6+random.uniform(high=3))
+                                              speed=5+random.uniform(high=2))
             # Prevent early collisions
             for v in self.road.vehicles:
                 if np.linalg.norm(vehicle.position - v.position) < 20:
