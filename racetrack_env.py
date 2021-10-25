@@ -295,9 +295,19 @@ class RaceTrackEnv(AbstractEnv):
 
         road.vehicles.append(ego_vehicle)
         self.controlled_vehicles.append(ego_vehicle)
+        
+        # Populate the Environment with One Other Vehicle
+        if self.config["spawn_vehicles"] > 0:
+            vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
+                                            longitudinal=random.uniform(
+                                                low=0,
+                                                high=self.road.network.get_lane(("b", "c", 0)).length
+                                            ),
+                                            speed=6+random.uniform(high=3))
+            self.road.vehicles.append(vehicle)
 
         # Populate the Environment with A Number of Other Vehicles
-        for i in range(self.config["spawn_vehicles"]):
+        for i in range(self.config["spawn_vehicles"]-1):
             random_lane_index = self.road.network.random_lane_index(self.np_random)
             vehicle = IDMVehicle.make_on_lane(self.road, random_lane_index,
                                               longitudinal=random.uniform(
