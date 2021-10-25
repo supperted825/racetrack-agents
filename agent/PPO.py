@@ -1,6 +1,6 @@
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.optimizers.schedules import PolynomialDecay, ExponentialDecay
 from tensorflow.keras.initializers import Orthogonal
 
@@ -106,8 +106,8 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
-            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
@@ -309,7 +309,8 @@ class PPOAgent():
         
         while self.total_steps < self.target_steps:
             self.collect_rollout(env, opt)
-            self.train()    
+            self.train()
+        self.policy.save(f'{opt.exp_dir}/model_last.model')
     
 
     def train(self):
