@@ -60,7 +60,7 @@ class opts(object):
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
-        self.parser.add_argument('--min_reward', default=100, type=int, help='Minimum Reward to Save Model')
+        self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
         self.parser.add_argument('--lr', default=5e-4, type=float, help='Policy Learning Rate')
