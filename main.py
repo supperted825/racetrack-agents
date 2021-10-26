@@ -12,12 +12,13 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
+from agent.PPOmulti import PPOMultiAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
-    "PPO" : PPOAgent
+    "PPO" : PPOMultiAgent,
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -71,7 +72,7 @@ class opts(object):
         # DQN Hyperparameters
         self.parser.add_argument('--epsilon', default=1, type=float, help='Initial Value of Epsilon')
         self.parser.add_argument('--epsilon_decay', default=0.9995, type=float, help='Decay Ratio of Epsilon')
-        self.parser.add_argument('--min_epsilon', default=0.1, type=float, help='Minimum Value of Epsilon')
+        self.parser.add_argument('--min_epsilon', default=0, type=float, help='Minimum Value of Epsilon')
         self.parser.add_argument('--dqn_gamma', default=0.99, type=float, help='Frequency of Updating Target Model')
         self.parser.add_argument('--update_freq', default=20, type=int, help='Frequency of Updating Target Model')
         self.parser.add_argument('--replay_size', default=10000, type=int, help='Size of the Replay Memory Buffer')
@@ -109,7 +110,7 @@ def display_observations(obs):
 def trainDQN(env, agent, num_episodes, opt):
 
     """Training Sequence for DQN"""
-
+    env = env(opt)
     rewards, best = [], 0
     epsilon = opt.epsilon
 
@@ -158,17 +159,16 @@ def trainDQN(env, agent, num_episodes, opt):
                 best = avg_reward
                 agent.model.save(f'{opt.exp_dir}/last_best.model')
 
-        """
         # Decay Epsilon
         if epsilon > opt.min_epsilon:
             epsilon *= opt.epsilon_decay
             epsilon = max(opt.min_epsilon, epsilon)
+            
         """
-
         # Linear Epsilon Decay
         if epsilon > opt.min_epsilon:
             epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - opt.min_epsilon)
-
+        """
 
 if __name__ == "__main__":
     
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         opt.obs_dim = [3, 96, 96]
         opt.num_actions = 3
     else:
-        env = RaceTrackEnv(opt)
+        env = RaceTrackEnv
 
     # For Recording or Visualisation
     if opt.save_video:
@@ -244,4 +244,4 @@ if __name__ == "__main__":
         while not done:
             obs, reward, done, _ = env.step(env.action_space.sample())
             total_reward += reward
-        print("Total Reward: ", total_reward)
+        print("Total Reward:
