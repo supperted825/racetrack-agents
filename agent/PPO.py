@@ -296,10 +296,10 @@ class PPOAgent():
         obss = np.array(obss)
         feats = self.feature_extractor(obss, training=False)
         vals = self.critic_network(feats).numpy()
-        acts = np.expand_dims(np.array(acts).flatten(), axis=0)
+        acts = np.expand_dims(np.array(acts).flatten(), axis=0).astype(np.float32)
 
         # Calculate Log Probabilities of Each Action
-        dist = tfd.Normal(acts, self.ACTOR_SIGMA)
+        dist = tfd.Normal(acts, self.ACTOR_SIGMA.numpy())
         log_probs = dist.log_prob(acts).numpy().squeeze()
 
         return vals, log_probs
