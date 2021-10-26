@@ -345,7 +345,6 @@ class PPOAgent():
                 
                 # Normalise Advantages
                 advs = (advs - advs.mean()) / (advs.std() + 1e-8)
-                rets = (rets - rets.mean()) / (rets.std() + 1e-8)
                 
                 # Reshape Advantages with Log Probs as Single Batch
                 advs = np.expand_dims(advs, axis=1)
