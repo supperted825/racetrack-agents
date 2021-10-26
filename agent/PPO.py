@@ -41,7 +41,7 @@ class PPOAgent():
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
-            self.memory_size = 1024
+            self.memory_size = 256
             self.target_steps = 200 * opt.num_episodes
             self.mode = opt.obs_dim[0]
 
@@ -52,7 +52,7 @@ class PPOAgent():
             self.V_CLIP = opt.ppo_vclip
             self.ENTROPY = opt.ppo_entropy
             self.TARGET_KL = opt.target_kl
-            self.ACTOR_SIGMA = tf.Variable(0, dtype=np.float64, trainable = True)
+            self.ACTOR_SIGMA = tf.Variable(0, dtype=np.float32, trainable = True)
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
@@ -107,8 +107,8 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
-            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
@@ -360,6 +360,8 @@ class PPOAgent():
                     
                     # Run Forward Passes on Models
                     a_pred, v_pred = self.policy([obss], training=True)
+                    
+                    print(a_pred, self.ACTOR_SIGMA)
                     
                     # Clipped Value Loss
                     v_clip = v_pred + tf.clip_by_value(rets - v_pred, -self.V_CLIP, self.V_CLIP)
