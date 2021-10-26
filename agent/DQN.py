@@ -51,7 +51,7 @@ class DQNAgent(object):
             write = csv.writer(file)
             write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
 
-        with open(opt.exp_dir + '/opt.txt', 'w+', newline ='') as file:
+        with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
             args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
             for k, v in sorted(args.items()):
                 file.write('  %s: %s\n' % (str(k), str(v)))
@@ -65,7 +65,7 @@ class DQNAgent(object):
         #         self.writer.flush()
         
         """Write Episode Information to CSV File"""
-        line = [step] + [value for value in logs.values()]
+        line = [step] + [round(value,3) for value in logs.values()]
         with open(self.logdir + '/log.csv', 'a', newline ='') as file:
             write = csv.writer(file)
             write.writerow(line)
