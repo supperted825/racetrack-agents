@@ -52,7 +52,7 @@ class PPOAgent():
             self.V_CLIP = opt.ppo_vclip
             self.ENTROPY = opt.ppo_entropy
             self.TARGET_KL = opt.target_kl
-            self.ACTOR_SIGMA = opt.actor_sigma
+            self.ACTOR_SIGMA = tf.Variable(0, dtype=np.float64, trainable = True)
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
@@ -170,7 +170,7 @@ class PPOAgent():
         self.replay_memory["mask"][step] = 0 if done else 1
     
 
-    def process_replay(self, mem, last_val, done):
+    def process_replay(self, mem):
         """Process Espisode Information for Value & Advantages"""
 
         # Calculate Values & Log Probs
@@ -252,7 +252,7 @@ class PPOAgent():
             new_obs = np.expand_dims(new_obs, axis=0)
             self.last_vals[num_steps] = self.critic_network(self.feature_extractor(new_obs, training=False)).numpy()
 
-            ep_lengths.append(steps+1)
+            ep_lengths.append(steps)
             ep_rewards.append(ep_reward)
         
         self.total_steps += num_steps + 1
@@ -368,10 +368,9 @@ class PPOAgent():
                     c_loss = tf.math.reduce_mean(tf.maximum(c_loss1, c_loss2))
                     
                     # Actor Loss
-                    a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
+                    a_loss, entropy, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
                     
                     # Entropy Bonus
-                    entropy = tf.math.reduce_sum(tf.math.exp(new_log_probs) * new_log_probs)
                     e_loss = - self.ENTROPY * entropy
                     
                     tot_loss = 0.5 * c_loss + a_loss + e_loss
@@ -410,6 +409,9 @@ class PPOAgent():
         # Get New Distributions & Log Probabilities of Actions
         new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
         new_log_probs = new_dist.log_prob(acts)
+        
+        # Entropy
+        entropy = new_dist.entropy()
 
         # Calculate Ratio Between Old & New Policy
         ratios = tf.math.exp(new_log_probs - old_log_probs)
@@ -419,4 +421,4 @@ class PPOAgent():
         loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
         actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
         
-        return actor_loss, new_log_probs
+        return actor_loss, entropy, new_log_probs

@@ -83,7 +83,6 @@ class opts(object):
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--ppo_vclip', default=0.1, type=float, help='Value Clipping Epsilon')
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
-        self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
 
     def parse(self, args=''):
