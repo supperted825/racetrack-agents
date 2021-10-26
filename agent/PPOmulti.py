@@ -151,6 +151,9 @@ class PPOMultiAgent():
         if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
             self.policy.save(f'{opt.exp_dir}/last_best.model')
+            
+        if self.best > 120 and self.TARGET_KL == None:
+                self.TARGET_KL = 0.01
 
     
     def train_callback(self):
@@ -224,7 +227,6 @@ class PPOMultiAgent():
             # Retrieve Next Step Value, Last Val if Terminal else Val
             if mask == 0 and last_vals[idx] != 0:
                 last_val = last_vals[idx]
-                print(last_val)
             else:
                 last_val = vals[idx+1]
             
@@ -252,13 +254,15 @@ class PPOMultiAgent():
             self.replay_memory[key][worker*self.work_steps:worker*self.work_steps+self.work_steps] = out_dict[key]
 
 
-    def collect_rollout(self, env, total_steps, buffer, last_vals, opt):
+    def collect_rollout(self, worker, env, opt):
         """Collect Experiences from Environment for Training"""
+        
+        buffer, last_vals = self.create_buffer(self.work_steps)
         
         num_steps = 0
         env = env(opt)
 
-        while num_steps != total_steps -1:
+        while num_steps != self.work_steps-1:
             done = False
             last_obs = env.reset() if not opt.debug == 2 else env.reset().T
             ep_reward = 0
@@ -287,7 +291,6 @@ class PPOMultiAgent():
                 
             # Calculate Last Value for Finished Episode
             new_obs = np.expand_dims(new_obs, axis=0)
-            print(num_steps)
             last_vals[num_steps] = self.critic_network(self.feature_extractor(new_obs, training=False)).numpy()
             self.num_eps += 1
             self.tot_rew += ep_reward
@@ -299,6 +302,8 @@ class PPOMultiAgent():
                 self.max_reward = ep_reward
         
         self.total_steps += num_steps + 1
+        
+        self.process_replay(worker, buffer, last_vals)
 
 
     def act(self, obs, optimal=False):
@@ -333,13 +338,11 @@ class PPOMultiAgent():
         """Run Rollout & Training Sequence"""
         
         self.work_steps = self.memory_size // self.num_workers
-        print("Work Steps", self.work_steps)
         
         while self.total_steps < self.target_steps:
             
             # Initialise Worker & Tracking Variables
             worker = [None] * self.num_workers
-            buffer_arr, last_val_arr = [], []
             self.tot_rew = self.num_eps = 0
             self.min_reward, self.max_reward = None, None
             
@@ -347,15 +350,11 @@ class PPOMultiAgent():
             
             # Start Workers to Collect Rollout
             for i in range(self.num_workers):
-                buffer, last_vals = self.create_buffer(self.work_steps)
-                buffer_arr.append(buffer)
-                last_val_arr.append(last_vals)
-                worker[i] = threading.Thread(target=self.collect_rollout, args=(env, self.work_steps, buffer, last_vals, opt))
+                worker[i] = threading.Thread(target=self.collect_rollout, args=(i, env, opt))
                 worker[i].start()
 
             for i in range(self.num_workers):
                 worker[i].join()
-                self.process_replay(i, buffer_arr[i], last_val_arr[i])
             
             # Display Performance & Run Training
             self.env_callback(opt)
@@ -441,14 +440,11 @@ class PPOMultiAgent():
                 self.a_losses.append(a_loss.numpy())
                 self.c_losses.append(c_loss.numpy())
                 self.kl_divs.append(kl_div)
-
-                # Show Training Progress on Console
-                self.train_callback()
-                
-                if self.best > 120 and self.TARGET_KL == None:
-                    self.TARGET_KL = 0.01
                 
                 self.num_updates += 1
+            
+            # Show Training Progress on Console
+            self.train_callback()
         
         self.reset_memory()
 
