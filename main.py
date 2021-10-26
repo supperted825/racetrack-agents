@@ -12,13 +12,12 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-from agent.PPOmulti import PPOMultiAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
-    "PPO" : PPOMultiAgent,
+    "PPO" : PPOAgent,
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -82,6 +81,7 @@ class opts(object):
         self.parser.add_argument('--gae_lambda', default=0.95, type=float, help='Generalised Advantage Estimate Lambda')
         self.parser.add_argument('--gae_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
+        self.parser.add_argument('--ppo_vclip', default=1, type=float, help='Value Clipping Epsilon')
         self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
         self.parser.add_argument('--actor_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')

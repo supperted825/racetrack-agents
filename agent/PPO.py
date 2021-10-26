@@ -49,6 +49,7 @@ class PPOAgent():
             self.GAE_GAMMA = opt.gae_gamma
             self.GAE_LAMBDA = opt.gae_lambda
             self.PPO_EPSILON = opt.ppo_epsilon
+            self.V_CLIP = opt.ppo_vclip
             self.ENTROPY = opt.ppo_entropy
             self.TARGET_KL = opt.target_kl
             self.ACTOR_SIGMA = opt.actor_sigma
@@ -307,6 +308,8 @@ class PPOAgent():
     def learn(self, env, opt):
         """Run Rollout & Training Sequence"""
         
+        env = env(opt)
+        
         while self.total_steps < self.target_steps:
             self.collect_rollout(env, opt)
             self.train()
@@ -342,6 +345,7 @@ class PPOAgent():
                 
                 # Normalise Advantages
                 advs = (advs - advs.mean()) / (advs.std() + 1e-8)
+                rets = (rets - rets.mean()) / (rets.std() + 1e-8)
                 
                 # Reshape Advantages with Log Probs as Single Batch
                 advs = np.expand_dims(advs, axis=1)
@@ -358,8 +362,13 @@ class PPOAgent():
                     # Run Forward Passes on Models
                     a_pred, v_pred = self.policy([obss], training=True)
                     
-                    # Compute Respective Losses
-                    c_loss = self.critic_loss(v_pred, rets)
+                    # Clipped Value Loss
+                    v_clip = v_pred + tf.clip_by_value(rets - v_pred, -self.V_CLIP, self.V_CLIP)
+                    c_loss1 = tf.square(v_pred - rets)
+                    c_loss2 = tf.square(v_clip - rets)
+                    c_loss = tf.math.reduce_mean(tf.maximum(c_loss1, c_loss2))
+                    
+                    # Actor Loss
                     a_loss, entropy, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
                     
                     # Entropy Bonus
@@ -414,11 +423,3 @@ class PPOAgent():
         actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
         
         return actor_loss, entropy, new_log_probs
-    
-    
-    @tf.function
-    def critic_loss(self, y_pred, rets):
-        """Mean-Squared-Error for Critic"""
-        critic_loss = tf.math.squared_difference(rets, y_pred)
-        critic_loss = tf.math.reduce_mean(critic_loss)
-        return critic_loss
