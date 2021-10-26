@@ -142,8 +142,9 @@ class PPOMultiAgent():
         
         logging.info(f"Total Steps: {self.total_steps}")
         logging.info(f"Num. Model Updates: {self.num_updates}")
-        logging.info(f"Average Reward: {avg_reward}")
-        logging.info(f"Average Ep Length: {avg_ep_len}")
+        logging.info(f"Average Reward: {avg_reward:.3f}")
+        logging.info(f"Average Ep Length: {avg_ep_len:3f}")
+        logging.info(40*"-")
         
         self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=self.min_reward, reward_max=self.max_reward, avg_ep_len=avg_ep_len)
         
@@ -158,8 +159,6 @@ class PPOMultiAgent():
     
     def train_callback(self):
         """Write Training Information to Console"""
-        
-        logging.info(40*"-")
         
         if len(self.losses) > 0:
             logging.info(f"Total Loss: {np.mean(self.losses):.5f}")
