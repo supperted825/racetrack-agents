@@ -41,7 +41,7 @@ class PPOAgent():
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
-            self.memory_size = 256
+            self.memory_size = 2048
             self.target_steps = 200 * opt.num_episodes
             self.mode = opt.obs_dim[0]
 
