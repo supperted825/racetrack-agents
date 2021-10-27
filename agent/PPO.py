@@ -1,14 +1,11 @@
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras.optimizers import Adam, SGD
-from tensorflow.keras.optimizers.schedules import PolynomialDecay, ExponentialDecay
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers.schedules import PolynomialDecay
 from tensorflow.keras.initializers import Orthogonal
 
 import tensorflow as tf
 import tensorflow.keras as K
-
-import tensorflow_probability as tfp
-tfd = tfp.distributions
 
 import os
 import sys
