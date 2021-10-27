@@ -49,7 +49,6 @@ class PPOAgent():
             self.GAE_GAMMA = opt.gae_gamma
             self.GAE_LAMBDA = opt.gae_lambda
             self.PPO_EPSILON = opt.ppo_epsilon
-            self.V_CLIP = opt.ppo_vclip
             self.TARGET_KL = opt.target_kl
             self.ACTOR_SIGMA = 0.3
 
@@ -222,7 +221,7 @@ class PPOAgent():
         while num_steps != self.memory_size - 1:
 
             steps, done = 0, False
-            self.last_obs = self.last_obs if not opt.debug == 2 else self.last_obs.T
+            self.last_obs = env.reset() if not opt.debug == 2 else env.reset().T
             ep_reward = 0
 
             while True:
@@ -237,7 +236,6 @@ class PPOAgent():
                 # Break Early if Rollout has Been Filled, Mark Step as End
                 if done or num_steps == self.memory_size - 1:
                     self.update_replay(num_steps, self.last_obs, action, reward, done)
-                    self.last_obs = env.reset() if done else self.last_obs
                     self.episode_counter += 1
                     break
                 
@@ -361,11 +359,9 @@ class PPOAgent():
                     # Run Forward Passes on Models
                     a_pred, v_pred = self.policy([obss], training=True)
 
-                    # Clipped Value Loss
-                    v_clip = v_pred + tf.clip_by_value(rets - v_pred, -self.V_CLIP, self.V_CLIP)
-                    c_loss1 = tf.square(v_pred - rets)
-                    c_loss2 = tf.square(v_clip - rets)
-                    c_loss = tf.math.reduce_mean(tf.maximum(c_loss1, c_loss2))
+                    # Value Loss
+                    c_loss = tf.square(v_pred - rets)
+                    c_loss = tf.math.reduce_mean(c_loss)
                     
                     # Actor Loss
                     a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
