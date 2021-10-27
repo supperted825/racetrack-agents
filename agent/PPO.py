@@ -38,7 +38,7 @@ class PPOAgent():
             self.name = "{}_{}_{}Actions".format(opt.agent, opt.arch, opt.num_actions)
             self.lr = opt.lr
             self.epochs = opt.num_epochs
-            self.batch_size = opt.batch_size
+            self.batch_size = 256
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
             self.memory_size = 2048
@@ -50,9 +50,8 @@ class PPOAgent():
             self.GAE_LAMBDA = opt.gae_lambda
             self.PPO_EPSILON = opt.ppo_epsilon
             self.V_CLIP = opt.ppo_vclip
-            self.ENTROPY = opt.ppo_entropy
             self.TARGET_KL = opt.target_kl
-            self.ACTOR_SIGMA = tf.Variable(0, dtype=np.float32, trainable = True)
+            self.ACTOR_SIGMA = 0.3
 
             # Instantiate Model & Optimizer
             self.policy = self.create_model(opt)
@@ -107,12 +106,12 @@ class PPOAgent():
         
         # Build Hidden Layers for Actor & Critic Output Heads
         for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
-            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
 
         # Add Final Output Layers to Each Head
         self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-        self.critic_network.add(Dense(1, kernel_initializer=Orthogonal(1)))
+        self.critic_network.add(Dense(1, activation='relu',kernel_initializer=Orthogonal(1)))
         
         # Generate Passes & Compile Model
         feats = self.feature_extractor(obs)
@@ -132,20 +131,21 @@ class PPOAgent():
             write.writerow(line)
 
     
-    def callback(self, avg_reward, avg_ep_len):
+    def callback(self, avg_reward):
         """Write Training Information to Console"""
+        
+        self.avg_ep_len = self.memory_size / self.episode_counter
         
         logging.info(40*"-")
         logging.info(f"Total Steps: {self.total_steps}")
         logging.info(f"Average Reward: {avg_reward:.3f}")
-        logging.info(f"Average Episode Length: {avg_ep_len:.3f}")
+        logging.info(f"Average Episode Length: {self.avg_ep_len:.3f}")
         logging.info(f"Num. Model Updates: {self.num_updates}")
         
         if len(self.losses) > 0:
             logging.info(f"Total Loss: {np.mean(self.losses):.5f}")
             logging.info(f"Actor Loss: {np.mean(self.a_losses):.5f}")
             logging.info(f"Critic Loss: {np.mean(self.c_losses):.5f}")
-            logging.info(f"Entropy Loss: {np.mean(self.e_losses):.5f}")
             logging.info(f"Approx KL Div: {np.mean(self.kl_divs):.3f}")
             
         logging.info(40*"-")
@@ -216,32 +216,33 @@ class PPOAgent():
         
         # For Logging of Agent Performance
         ep_rewards = []
-        ep_lengths = []
         num_steps = 0
+        self.episode_counter = 0
 
         while num_steps != self.memory_size - 1:
 
             steps, done = 0, False
-            last_obs = env.reset() if not opt.debug == 2 else env.reset().T
+            self.last_obs = self.last_obs if not opt.debug == 2 else self.last_obs.T
             ep_reward = 0
 
             while True:
 
                 # Get Action & Step Environment
-                action = self.act(last_obs)
+                action = self.act(self.last_obs)
                 new_obs, reward, done, _ = env.step(action)
 
                 if opt.debug == 2:
-                    obs = obs.T
+                    new_obs = new_obs.T
                 
                 # Break Early if Rollout has Been Filled, Mark Step as End
                 if done or num_steps == self.memory_size - 1:
-                    done = True
-                    self.update_replay(num_steps, last_obs, action, reward, done)
+                    self.update_replay(num_steps, self.last_obs, action, reward, done)
+                    self.last_obs = env.reset() if done else self.last_obs
+                    self.episode_counter += 1
                     break
                 
-                self.update_replay(num_steps, last_obs, action, reward, done)
-                last_obs = new_obs
+                self.update_replay(num_steps, self.last_obs, action, reward, done)
+                self.last_obs = new_obs
                 
                 # Increment Step Counters
                 steps += 1
@@ -252,21 +253,19 @@ class PPOAgent():
             new_obs = np.expand_dims(new_obs, axis=0)
             self.last_vals[num_steps] = self.critic_network(self.feature_extractor(new_obs, training=False)).numpy()
 
-            ep_lengths.append(steps)
             ep_rewards.append(ep_reward)
         
         self.total_steps += num_steps + 1
 
         # Log Memory Buffer Information & Write to CSV
-        avg_ep_len = np.mean(ep_lengths)
         avg_reward = np.mean(ep_rewards)
         min_reward = np.min(ep_rewards)
         max_reward = np.max(ep_rewards)
 
         # Show Training Progress on Console
-        self.callback(avg_reward, avg_ep_len)
+        self.callback(avg_reward)
 
-        self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=avg_ep_len)
+        self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=self.avg_ep_len)
 
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
         if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
@@ -274,7 +273,9 @@ class PPOAgent():
             self.policy.save(f'{opt.exp_dir}/last_best.model')
         
         if self.best > 120 and self.TARGET_KL == None:
-            self.TARGET_KL = 0.01
+            self.PPO_EPSILON = 0.1
+            self.optimizer.learning_rate.assign(self.lr/10)
+            #self.TARGET_KL = 0.01
 
 
     def act(self, obs, optimal=False):
@@ -299,7 +300,7 @@ class PPOAgent():
         acts = np.expand_dims(np.array(acts).flatten(), axis=0).astype(np.float32)
 
         # Calculate Log Probabilities of Each Action
-        dist = tfd.Normal(acts, self.ACTOR_SIGMA.numpy())
+        dist = tfd.Normal(acts, self.ACTOR_SIGMA)
         log_probs = dist.log_prob(acts).numpy().squeeze()
 
         return vals, log_probs
@@ -308,8 +309,7 @@ class PPOAgent():
     def learn(self, env, opt):
         """Run Rollout & Training Sequence"""
         
-        env = env(opt)
-        
+        self.last_obs = env.reset()
         while self.total_steps < self.target_steps:
             self.collect_rollout(env, opt)
             self.train()
@@ -327,14 +327,13 @@ class PPOAgent():
         
         # Train Logging
         self.losses = []
-        self.e_losses = []
         self.a_losses = []
         self.c_losses = []
         self.kl_divs = []
 
         for epoch in range(self.epochs):
             
-            for batch_idx in range(0, len(buffer_obss), self.batch_size): 
+            for batch_idx in range(0, self.memory_size, self.batch_size): 
 
                 # Go Through Buffer Batch Size at a Time
                 obss = buffer_obss[ind[batch_idx:batch_idx + self.batch_size]]
@@ -349,6 +348,7 @@ class PPOAgent():
                 # Reshape Advantages with Log Probs as Single Batch
                 advs = np.expand_dims(advs, axis=1)
                 prbs = np.expand_dims(prbs, axis=1)
+                rets = np.expand_dims(rets, axis=1)
 
                 # Cast Constant Inputs to Tensors
                 acts = tf.constant(acts, tf.float32)
@@ -360,9 +360,7 @@ class PPOAgent():
                     
                     # Run Forward Passes on Models
                     a_pred, v_pred = self.policy([obss], training=True)
-                    
-                    print(a_pred, self.ACTOR_SIGMA)
-                    
+
                     # Clipped Value Loss
                     v_clip = v_pred + tf.clip_by_value(rets - v_pred, -self.V_CLIP, self.V_CLIP)
                     c_loss1 = tf.square(v_pred - rets)
@@ -370,12 +368,9 @@ class PPOAgent():
                     c_loss = tf.math.reduce_mean(tf.maximum(c_loss1, c_loss2))
                     
                     # Actor Loss
-                    a_loss, entropy, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
+                    a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
                     
-                    # Entropy Bonus
-                    e_loss = - self.ENTROPY * entropy
-                    
-                    tot_loss = 0.5 * c_loss + a_loss + e_loss
+                    tot_loss = 0.5 * c_loss + a_loss
                 
                 # Compute KL Divergence for Early Stopping Before Backprop
                 kl_div = 0.5 * tf.reduce_mean(tf.square(new_log_probs - prbs))
@@ -394,7 +389,6 @@ class PPOAgent():
                 
                 # Logging
                 self.losses.append(tot_loss.numpy())
-                self.e_losses.append(e_loss.numpy())
                 self.a_losses.append(a_loss.numpy())
                 self.c_losses.append(c_loss.numpy())
                 self.kl_divs.append(kl_div)
@@ -411,9 +405,6 @@ class PPOAgent():
         # Get New Distributions & Log Probabilities of Actions
         new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
         new_log_probs = new_dist.log_prob(acts)
-        
-        # Entropy
-        entropy = new_dist.entropy()
 
         # Calculate Ratio Between Old & New Policy
         ratios = tf.math.exp(new_log_probs - old_log_probs)
@@ -423,4 +414,4 @@ class PPOAgent():
         loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
         actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
         
-        return actor_loss, entropy, new_log_probs
+        return actor_loss, new_log_probs
