@@ -116,7 +116,7 @@ class PPOAgent():
             logging.info(f"Critic Loss: {np.mean(self.c_losses):.5f}")
             logging.info(f"Entropy Loss: {np.mean(self.e_losses):.5f}")
             logging.info(f"Approx KL Div: {np.mean(self.kl_divs):.3f}")
-            logging.info(f"Log Std: {np.exp(self.policy.log_std.numpy()).squeeze():.3f}")
+            logging.info(f"Policy Std Dev: {np.exp(self.policy.log_std.numpy()).squeeze():.3f}")
             
         logging.info(40*"-")
 
