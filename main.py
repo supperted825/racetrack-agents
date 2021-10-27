@@ -82,7 +82,6 @@ class opts(object):
         self.parser.add_argument('--gae_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--ppo_vclip', default=0.1, type=float, help='Value Clipping Epsilon')
-        self.parser.add_argument('--ppo_entropy', default=0.001, type=float, help='Regulariser Entropy Loss Ratio')
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
 
     def parse(self, args=''):
@@ -109,7 +108,6 @@ def display_observations(obs):
 def trainDQN(env, agent, num_episodes, opt):
 
     """Training Sequence for DQN"""
-    env = env(opt)
     rewards, best = [], 0
     epsilon = opt.epsilon
 
@@ -184,7 +182,7 @@ if __name__ == "__main__":
         opt.obs_dim = [3, 96, 96]
         opt.num_actions = 3
     else:
-        env = RaceTrackEnv
+        env = RaceTrackEnv(opt)
 
     # For Recording or Visualisation
     if opt.save_video:
