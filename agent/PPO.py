@@ -357,7 +357,7 @@ class PolicyModel(Model):
         """Pass Model Parameters from Opt & Initialise Learnable Log Std Param"""
         super().__init__('PolicyModel')
         self.build_model(opt)
-        self.log_std = tf.Variable(initial_value=0*np.ones(opt.num_actions, dtype=np.float32))
+        self.log_std = tf.Variable(initial_value=-0.5*np.ones(opt.num_actions, dtype=np.float32))
         
     
     def build_model(self, opt):
