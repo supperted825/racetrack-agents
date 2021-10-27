@@ -38,10 +38,10 @@ class PPOAgent():
             self.name = "{}_{}_{}Actions".format(opt.agent, opt.arch, opt.num_actions)
             self.lr = opt.lr
             self.epochs = opt.num_epochs
-            self.batch_size = 256
+            self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
-            self.memory_size = 2048
+            self.memory_size = 12 * opt.batch_size
             self.target_steps = 200 * opt.num_episodes
             self.mode = opt.obs_dim[0]
 
@@ -50,10 +50,10 @@ class PPOAgent():
             self.GAE_LAMBDA = opt.gae_lambda
             self.PPO_EPSILON = opt.ppo_epsilon
             self.TARGET_KL = opt.target_kl
-            self.ACTOR_SIGMA = 0.3
+            self.ENTROPY = 0.001
 
             # Instantiate Model & Optimizer
-            self.policy = self.create_model(opt)
+            self.policy = PolicyModel(opt)
             lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.batch_size * self.epochs, end_learning_rate=0)
             self.optimizer = Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr)
 
@@ -91,37 +91,6 @@ class PPOAgent():
                 logging.info("Loaded Weights from Last Best Model!")
 
 
-    def create_model(self, opt):
-        """Constructs Policy Network with Shared Backbone & Actor+Critic Heads"""
-        
-        # Define Model Inputs
-        obs = Input(shape=opt.obs_dim)
-        
-        # Grab Shared Backbone from Models
-        self.feature_extractor = get_model(opt)
-        
-        self.actor_network = Sequential()
-        self.critic_network = Sequential()
-        
-        # Build Hidden Layers for Actor & Critic Output Heads
-        for _ in range(opt.fc_layers):
-            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
-            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
-
-        # Add Final Output Layers to Each Head
-        self.actor_network.add(Dense(self.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-        self.critic_network.add(Dense(1, activation='relu',kernel_initializer=Orthogonal(1)))
-        
-        # Generate Passes & Compile Model
-        feats = self.feature_extractor(obs)
-        action_output = self.actor_network(feats)
-        value_output = self.critic_network(feats)
-        
-        model = Model(inputs=[obs], outputs=[action_output,value_output])
-        
-        return model
-
-
     def write_log(self, step, **logs):
         """Write Episode Information to CSV File"""
         line = [step] + [value for value in logs.values()]
@@ -145,10 +114,22 @@ class PPOAgent():
             logging.info(f"Total Loss: {np.mean(self.losses):.5f}")
             logging.info(f"Actor Loss: {np.mean(self.a_losses):.5f}")
             logging.info(f"Critic Loss: {np.mean(self.c_losses):.5f}")
+            logging.info(f"Entropy Loss: {np.mean(self.e_losses):.5f}")
             logging.info(f"Approx KL Div: {np.mean(self.kl_divs):.3f}")
+            logging.info(f"Log Std: {np.exp(self.policy.log_std.numpy()).squeeze():.3f}")
             
         logging.info(40*"-")
 
+
+    def learn(self, env, opt):
+        """Run Rollout & Training Sequence"""
+        
+        self.last_obs = env.reset()
+        while self.total_steps < self.target_steps:
+            self.collect_rollout(env, opt)
+            self.train()
+        self.policy.save(f'{opt.exp_dir}/model_last.model')
+    
 
     def reset_memory(self):
         """Reset Agent Replay Memory Buffer"""
@@ -156,59 +137,22 @@ class PPOAgent():
             "obss" : np.zeros((self.memory_size, *self.obs_dim,)),
             "acts" : np.zeros((self.memory_size, self.num_actions,)),
             "rews" : np.zeros(self.memory_size),
+            "vals" : np.zeros(self.memory_size),
+            "prbs" : np.zeros(self.memory_size),
             "mask" : np.zeros(self.memory_size)
         }
         self.last_vals = np.zeros((self.memory_size+1))
 
 
-    def update_replay(self, step, obs, act, rew, done):
+    def update_replay(self, step, obs, act, rew, val, prb, done):
         """Record Stepwise Episode Information with Critic Output"""
-        self.replay_memory["obss"][step] = obs if self.mode == 2 else obs/255
+        self.replay_memory["obss"][step] = obs/255
         self.replay_memory["acts"][step] = act
         self.replay_memory["rews"][step] = rew
+        self.replay_memory["vals"][step] = val
+        self.replay_memory["prbs"][step] = prb
         self.replay_memory["mask"][step] = 0 if done else 1
     
-
-    def process_replay(self, mem):
-        """Process Espisode Information for Value & Advantages"""
-
-        # Calculate Values & Log Probs
-        vals, prbs = self.evaluate(mem["obss"], mem["acts"])
-
-        last_adv = 0
-        g = self.GAE_GAMMA
-        l = self.GAE_LAMBDA
-
-        # Initialise Return Arrays with Appropriate Shapes
-        advs = np.empty((self.memory_size,))
-        rets = np.empty((self.memory_size,))
-        
-        for idx in reversed(range(len(vals))):
-            
-            # Prepare Variables for this Step
-            reward = mem["rews"][idx]
-            mask = mem["mask"][idx]
-            value = vals[idx]
-            
-            # Retrieve Next Step Value
-            if idx == len(vals) -1:
-                last_val = self.last_vals[idx+1]
-            else:
-                last_val = vals[idx+1]
-            
-            # Calculate Return & Advantage
-            delta = reward + g * last_val * mask - value
-            adv = delta + g * l * last_adv * mask
-            ret = value + adv
-
-            # Append to Output Arrays
-            advs[idx] = adv
-            rets[idx] = ret
-
-            last_adv = adv
-        
-        return mem["obss"], mem["acts"], advs, rets, prbs
-
 
     def collect_rollout(self, env, opt):
         """Collect Experiences from Environment for Training"""
@@ -227,7 +171,7 @@ class PPOAgent():
             while True:
 
                 # Get Action & Step Environment
-                action = self.act(self.last_obs)
+                action, value, logp = self.policy.act(self.last_obs)
                 new_obs, reward, done, _ = env.step(action)
 
                 if opt.debug == 2:
@@ -235,11 +179,11 @@ class PPOAgent():
                 
                 # Break Early if Rollout has Been Filled, Mark Step as End
                 if done or num_steps == self.memory_size - 1:
-                    self.update_replay(num_steps, self.last_obs, action, reward, done)
+                    self.update_replay(num_steps, self.last_obs, action, reward, value, logp, done)
                     self.episode_counter += 1
                     break
                 
-                self.update_replay(num_steps, self.last_obs, action, reward, done)
+                self.update_replay(num_steps, self.last_obs, action, reward, value, logp, done)
                 self.last_obs = new_obs
                 
                 # Increment Step Counters
@@ -249,7 +193,7 @@ class PPOAgent():
             
             # Calculate Last Value for Finished Episode
             new_obs = np.expand_dims(new_obs, axis=0)
-            self.last_vals[num_steps] = self.critic_network(self.feature_extractor(new_obs, training=False)).numpy()
+            self.last_vals[num_steps] = self.policy.critic_network(self.policy.feature_extractor(new_obs, training=False)).numpy()
 
             ep_rewards.append(ep_reward)
         
@@ -271,47 +215,52 @@ class PPOAgent():
             self.policy.save(f'{opt.exp_dir}/last_best.model')
         
         if self.best > 120 and self.TARGET_KL == None:
+            logging.info("Decaying PPO Clip & Learning Rate!")
             self.PPO_EPSILON = 0.1
-            self.optimizer.learning_rate.assign(self.lr/10)
+            #self.optimizer.learning_rate.assign(self.lr/10)
             #self.TARGET_KL = 0.01
 
 
-    def act(self, obs, optimal=False):
-        """Get Action from Actor Network"""
+    def process_replay(self, mem):
+        """Process Espisode Information for Value & Advantages"""
+
+        # Calculate Values & Log Probs
+        vals = mem["vals"].flatten()
+        prbs = mem["prbs"].flatten()
+
+        last_adv = 0
+        g = self.GAE_GAMMA
+        l = self.GAE_LAMBDA
+
+        # Initialise Return Arrays with Appropriate Shapes
+        advs = np.empty((self.memory_size,))
+        rets = np.empty((self.memory_size,))
         
-        obs = obs if self.mode == 2 else obs/255
-        with tf.device('/cpu:0'):
-            obs = np.expand_dims(obs, axis=0)
-            feats = self.feature_extractor(obs, training=False)
-            action = self.actor_network(feats)
+        for idx in reversed(range(len(vals))):
+            
+            # Prepare Variables for this Step
+            reward = mem["rews"][idx]
+            mask = mem["mask"][idx]
+            value = vals[idx]
+            
+            # Retrieve Next Step Value
+            if idx == len(vals) -1:
+                last_val = self.last_vals[idx+1]
+            else:
+                last_val = vals[idx+1].squeeze()
+            
+            # Calculate Return & Advantage
+            delta = reward + g * last_val * mask - value
+            adv = delta + g * l * last_adv * mask
+            ret = value + adv
 
-        return action.numpy()
-    
+            # Append to Output Arrays
+            advs[idx] = adv
+            rets[idx] = ret
 
-    def evaluate(self, obss, acts):
-        """Produce Values & Log Probabilties for Given Batch of Observations"""
-
-        # Predict Value & Prepare Action Outputs
-        obss = np.array(obss)
-        feats = self.feature_extractor(obss, training=False)
-        vals = self.critic_network(feats).numpy()
-        acts = np.expand_dims(np.array(acts).flatten(), axis=0).astype(np.float32)
-
-        # Calculate Log Probabilities of Each Action
-        dist = tfd.Normal(acts, self.ACTOR_SIGMA)
-        log_probs = dist.log_prob(acts).numpy().squeeze()
-
-        return vals, log_probs
-
-    
-    def learn(self, env, opt):
-        """Run Rollout & Training Sequence"""
+            last_adv = adv
         
-        self.last_obs = env.reset()
-        while self.total_steps < self.target_steps:
-            self.collect_rollout(env, opt)
-            self.train()
-        self.policy.save(f'{opt.exp_dir}/model_last.model')
+        return mem["obss"], mem["acts"], advs, rets, prbs
     
 
     def train(self):
@@ -327,6 +276,7 @@ class PPOAgent():
         self.losses = []
         self.a_losses = []
         self.c_losses = []
+        self.e_losses = []
         self.kl_divs = []
 
         for epoch in range(self.epochs):
@@ -343,11 +293,6 @@ class PPOAgent():
                 # Normalise Advantages
                 advs = (advs - advs.mean()) / (advs.std() + 1e-8)
                 
-                # Reshape Advantages with Log Probs as Single Batch
-                advs = np.expand_dims(advs, axis=1)
-                prbs = np.expand_dims(prbs, axis=1)
-                rets = np.expand_dims(rets, axis=1)
-
                 # Cast Constant Inputs to Tensors
                 acts = tf.constant(acts, tf.float32)
                 advs = tf.constant(advs, tf.float32)
@@ -356,17 +301,26 @@ class PPOAgent():
                 
                 with tf.GradientTape() as tape:
                     
-                    # Run Forward Passes on Models
-                    a_pred, v_pred = self.policy([obss], training=True)
+                    # Run Forward Passes on Models & Get New Log Probs
+                    a_pred, v_pred = self.policy(obss)
+                    new_log_probs = self.policy.logp(a_pred, acts)
 
+                    # Calculate Ratio Between Old & New Policy
+                    ratios = tf.math.exp(new_log_probs - prbs)
+                    
+                    # Clipped Actor Loss
+                    loss1 = advs * ratios
+                    loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
+                    a_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
+                    
+                    # Entropy Loss
+                    entropy = self.policy.entropy()
+                    e_loss = -tf.math.reduce_mean(entropy)
+                    
                     # Value Loss
-                    c_loss = tf.square(v_pred - rets)
-                    c_loss = tf.math.reduce_mean(c_loss)
+                    c_loss = tf.math.reduce_mean(tf.square(v_pred - rets))
                     
-                    # Actor Loss
-                    a_loss, new_log_probs = self.ppo_loss(a_pred, acts, prbs, advs)
-                    
-                    tot_loss = 0.5 * c_loss + a_loss
+                    tot_loss = 0.5 * c_loss + a_loss + self.ENTROPY * e_loss
                 
                 # Compute KL Divergence for Early Stopping Before Backprop
                 kl_div = 0.5 * tf.reduce_mean(tf.square(new_log_probs - prbs))
@@ -387,27 +341,83 @@ class PPOAgent():
                 self.losses.append(tot_loss.numpy())
                 self.a_losses.append(a_loss.numpy())
                 self.c_losses.append(c_loss.numpy())
+                self.e_losses.append(e_loss.numpy())
                 self.kl_divs.append(kl_div)
                 
                 self.num_updates += 1
         
         self.reset_memory()
+    
 
-
-    @tf.function
-    def ppo_loss(self, y_pred, acts, old_log_probs, advs):
-        """PPO-Clip Loss for Actor"""
+class PolicyModel(Model):
+    """Actor Critic Policy Model for PPO"""
+    
+    
+    def __init__(self, opt):
+        """Pass Model Parameters from Opt & Initialise Learnable Log Std Param"""
+        super().__init__('PolicyModel')
+        self.build_model(opt)
+        self.log_std = tf.Variable(initial_value=0*np.ones(opt.num_actions, dtype=np.float32))
         
-        # Get New Distributions & Log Probabilities of Actions
-        new_dist = tfd.Normal(y_pred, self.ACTOR_SIGMA)
-        new_log_probs = new_dist.log_prob(acts)
-
-        # Calculate Ratio Between Old & New Policy
-        ratios = tf.math.exp(new_log_probs - old_log_probs)
-
-        # Clipped Actor Loss
-        loss1 = advs * ratios
-        loss2 = advs * tf.clip_by_value(ratios, 1 - self.PPO_EPSILON, 1 + self.PPO_EPSILON)
-        actor_loss = tf.math.reduce_mean(-tf.math.minimum(loss1, loss2))
+    
+    def build_model(self, opt):
+        """Build Model Layers & Architecture"""
         
-        return actor_loss, new_log_probs
+        self.feature_extractor = get_model(opt)
+        
+        # Retrieve Post-Feature Extractor Dimensions
+        for layer in self.feature_extractor.layers:
+            feature_output_dim = layer.output_shape
+
+        # Define Actor & Critic Networks
+        self.actor_network = Sequential()
+        self.critic_network = Sequential()
+        
+        for _ in range(opt.fc_layers):
+            self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+
+        self.actor_network.add(Dense(opt.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
+        self.critic_network.add(Dense(1, activation='tanh',kernel_initializer=Orthogonal(1)))
+        
+        self.actor_network.build(feature_output_dim)
+        self.critic_network.build(feature_output_dim)
+
+    
+    def call(self, inputs):
+        """Run Forward Pass on Actor Network Only"""
+        feats = self.feature_extractor(inputs)
+        action_output = self.actor_network(feats)
+        value_output = self.critic_network(feats)
+        return action_output, tf.squeeze(value_output)
+    
+        
+    def act(self, obss):
+        """Get Actions, Values & Log Probs During Experience Collection"""
+        
+        obss = np.expand_dims(obss, axis=0) / 255     
+        
+        # Run Forward Passes
+        feats = self.feature_extractor(obss)
+        a_pred = self.actor_network(feats)
+        v_pred = self.critic_network(feats)
+        
+        # Calcualte Log Probabilities
+        std = tf.exp(self.log_std)
+        action = a_pred + tf.random.normal(tf.shape(a_pred)) * std
+        action = tf.clip_by_value(action, -1, 1)
+        logp_t = self.logp(action, a_pred)
+        
+        return action.numpy(), v_pred.numpy().squeeze(), logp_t.numpy().squeeze()
+        
+        
+    def logp(self, x, mu):
+        """Return Log Probability of Action Given Distribution Parameters"""
+        pre_sum = -0.5 * (((x - mu) / (tf.exp(self.log_std) + 1e-8))**2 + 2 * self.log_std + np.log(2 * np.pi))
+        return tf.reduce_sum(pre_sum, axis= -1)
+        
+    
+    def entropy(self):
+        """Return Entropy of Policy Distribution"""
+        entropy = tf.reduce_sum(self.log_std + 0.5 * np.log(2.0 * np.pi * np.e), axis=-1)
+        return entropy
