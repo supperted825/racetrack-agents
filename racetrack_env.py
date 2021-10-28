@@ -307,7 +307,7 @@ class RaceTrackEnv(AbstractEnv):
             self.road.vehicles.append(vehicle)
 
         # Populate the Environment with A Number of Other Vehicles
-        while len(self.road.vehicles) < self.config["spawn_vehicles"] + 2:
+        while len(self.road.vehicles) < self.config["spawn_vehicles"] + 1:
             random_lane_index = self.road.network.random_lane_index(self.np_random)
             vehicle = IDMVehicle.make_on_lane(self.road, random_lane_index,
                                               longitudinal=random.uniform(
