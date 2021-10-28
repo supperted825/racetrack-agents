@@ -120,8 +120,6 @@ class PPOAgent():
 
     def learn(self, env, opt):
         """Run Rollout & Training Sequence"""
-        
-        self.last_obs = env.reset()
         while self.total_steps < self.target_steps:
             self.collect_rollout(env, opt)
             self.train()
@@ -209,13 +207,11 @@ class PPOAgent():
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
         if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
-            self.policy.save(f'{opt.exp_dir}/last_best.model')
+            self.policy.save(f'{opt.exp_dir}/R{avg_reward:.0f}.model')
         
         if self.best > 120 and self.TARGET_KL == None:
-            logging.info("Decaying PPO Clip & Learning Rate!")
+            logging.info("Decaying PPO Clip to 0.1!")
             self.PPO_EPSILON = 0.1
-            #self.optimizer.learning_rate.assign(self.lr/10)
-            #self.TARGET_KL = 0.01
 
 
     def process_replay(self, mem):
@@ -329,9 +325,6 @@ class PPOAgent():
                 # Compute Gradients & Apply to Model
                 gradients = tape.gradient(tot_loss, self.policy.trainable_variables)
                 gradients, _ = tf.clip_by_global_norm(gradients, 0.5)
-                
-                # learning_rate = (1 - self.total_steps / self.target_steps + 5e-8) * self.lr
-                # self.optimizer.lr.assign(learning_rate)
                 self.optimizer.apply_gradients(zip(gradients, self.policy.trainable_variables))
                 
                 # Logging
