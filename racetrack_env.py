@@ -94,7 +94,7 @@ class RaceTrackEnv(AbstractEnv):
             "policy_frequency": 5,
 
             # Reward Values
-            "collision_reward": -1,
+            "collision_reward": -2,
             "action_reward": 0.6,
             "offroad_penalty": -1,
             "lane_centering_cost": 4,
@@ -129,12 +129,15 @@ class RaceTrackEnv(AbstractEnv):
         lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
 
         # Combine Rewards
-        reward = lane_centering_reward + action_reward + subgoal_reward \
-                + self.config["collision_reward"] * self.vehicle.crashed
+        reward = lane_centering_reward + action_reward + subgoal_reward
                 
         # Offroad Penalty - No Rewards Given if Off-Road
         if not self.vehicle.on_road or not self._reward_laning():
             reward = self.config["offroad_penalty"]
+            
+        # If Crashed - Big Negative Penalty
+        if self.vehicle.crashed:
+            reward = self.config["collission_reward"]
 
         # Count Steps Spent Offroad for Early Stopping (See _is_terminal())
         if not self.vehicle.on_road:
