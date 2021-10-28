@@ -1,6 +1,6 @@
 from tqdm import tqdm
 from gym.wrappers import Monitor
-from racetrack_env import RaceTrackEnv, RaceTrackEnv2
+from racetrack_env import RaceTrackEnv
 
 import argparse
 import numpy as np
@@ -39,7 +39,6 @@ class opts(object):
         self.parser.add_argument('--mode', default='train', help='Train, Test, Manual')
         self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
         self.parser.add_argument('--exp_id', default='default', help='Unique Experiment Name for Saving Logs & Models')
-        self.parser.add_argument('--debug', default=0, type=int, help='Test Algo with (1) HighwayEnv Implementation, (2) OpenAI Gym')
         self.parser.add_argument('--resume', action='store_true', help='Whether to Load Last Model for Further Training')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
         self.parser.add_argument('--save_model', default=True, help='Whether to Save Model during Training')
@@ -173,15 +172,7 @@ if __name__ == "__main__":
     print(opt)
 
     # Set up Environment According to Debug Mode
-    if opt.debug == 1:
-        env = RaceTrackEnv2(opt)
-        opt.obs_dim = [2, 36, 36]
-    elif opt.debug == 2:
-        env = gym.make("CarRacing-v0")
-        opt.obs_dim = [3, 96, 96]
-        opt.num_actions = 3
-    else:
-        env = RaceTrackEnv(opt)
+    env = RaceTrackEnv(opt)
 
     # For Recording or Visualisation
     if opt.save_video:
