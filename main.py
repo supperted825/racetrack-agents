@@ -1,4 +1,3 @@
-from tqdm import tqdm
 from gym.wrappers import Monitor
 from racetrack_env import RaceTrackEnv
 

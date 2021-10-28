@@ -125,10 +125,10 @@ class DQNAgent(object):
         rewards, best = [], 0
         epsilon = opt.epsilon
 
-        for episode in tqdm(range(1, num_episodes + 1)):
+        for episode in range(1, num_episodes + 1):
 
             episode_reward = 0
-            obs = env.reset() if not opt.debug == 2 else env.reset().T
+            obs = env.reset()
             done = False
 
             while not done:
@@ -147,8 +147,6 @@ class DQNAgent(object):
                 episode_reward += reward
 
                 # Update Replay Memory & Train Agent Model
-                if opt.debug == 2:
-                    new_obs = new_obs.T
                 self.update_replay((obs, action_idx, reward, new_obs, done))
                 self.train(done)
 
