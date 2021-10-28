@@ -40,7 +40,6 @@ class PPOAgent():
             self.obs_dim = opt.obs_dim
             self.memory_size = 12 * opt.batch_size
             self.target_steps = 200 * opt.num_episodes
-            self.mode = opt.obs_dim[0]
 
             # PPO Hyperparameters
             self.GAE_GAMMA = opt.gae_gamma
@@ -160,7 +159,7 @@ class PPOAgent():
         while num_steps != self.memory_size - 1:
 
             steps, done = 0, False
-            self.last_obs = env.reset() if not opt.debug == 2 else env.reset().T
+            self.last_obs = env.reset()
             ep_reward = 0
 
             while True:
@@ -168,9 +167,6 @@ class PPOAgent():
                 # Get Action & Step Environment
                 action, value, logp = self.policy.act(self.last_obs)
                 new_obs, reward, done, _ = env.step(action)
-
-                if opt.debug == 2:
-                    new_obs = new_obs.T
                 
                 # Break Early if Rollout has Been Filled, Mark Step as End
                 if done or num_steps == self.memory_size - 1:
@@ -341,7 +337,6 @@ class PPOAgent():
 
 class PolicyModel(Model):
     """Actor Critic Policy Model for PPO"""
-    
     
     def __init__(self, opt):
         """Pass Model Parameters from Opt & Initialise Learnable Log Std Param"""
