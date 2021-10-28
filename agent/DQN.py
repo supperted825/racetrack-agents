@@ -12,6 +12,17 @@ import datetime
 from .models import get_model
 
 
+DISCRETE_ACTION_SPACE = {
+        0: [1 ,-1], 1: [1 , 0], 2: [1 , 1],
+        3: [0 ,-1], 4: [0 , 0], 5: [0 , 1],
+        6: [-1,-1], 7: [-1, 0], 8: [-1, 1]
+    }
+
+SIMPLE_DISCRETE_ACTION_SPACE = {
+        0: [-1], 1 : [0], 2 : [1]
+    }
+
+
 class DQNAgent(object):
     """Double DQN Agent"""
 
@@ -105,6 +116,68 @@ class DQNAgent(object):
             return self.target_model.predict(np.array(state).reshape(-1, *state.shape))[0]
         else:
             return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
+
+
+    def learn(self, env, opt):
+        """Training Sequence for DQN"""
+        
+        num_episodes = opt.num_episodes
+        rewards, best = [], 0
+        epsilon = opt.epsilon
+
+        for episode in tqdm(range(1, num_episodes + 1)):
+
+            episode_reward = 0
+            obs = env.reset() if not opt.debug == 2 else env.reset().T
+            done = False
+
+            while not done:
+
+                # E-Soft Action Selection
+                if np.random.random() > epsilon:
+                    action_idx = np.argmax(self.get_qvalues(obs))
+                elif opt.num_actions == 2:
+                    action_idx = np.random.randint(0, len(DISCRETE_ACTION_SPACE))
+                else:
+                    action_idx = np.random.randint(0, len(SIMPLE_DISCRETE_ACTION_SPACE))
+
+                # Step through Environment with Continuous Actions
+                new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
+                                                    SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
+                episode_reward += reward
+
+                # Update Replay Memory & Train Agent Model
+                if opt.debug == 2:
+                    new_obs = new_obs.T
+                self.update_replay((obs, action_idx, reward, new_obs, done))
+                self.train(done)
+
+                obs = new_obs
+
+            # Log Episode Rewards
+            rewards.append(episode_reward)
+            print(episode_reward)
+            
+            # For Logging Interval, Extract Average, Lowest, Best Reward Attained
+            if episode % opt.log_freq == 0 or episode == 1:
+                avg_reward = round(np.mean(rewards[-opt.log_freq:]),3)
+                min_reward = round(np.min(rewards[-opt.log_freq:]),3)
+                max_reward = round(np.max(rewards[-opt.log_freq:]),3)
+                self.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+
+                # Save Model if Average Reward is Greater than a Minimum & Better than Before
+                if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
+                    best = avg_reward
+                    self.model.save(f'{opt.exp_dir}/last_best.model')
+
+            # # Exponential Epsilon Decay
+            # if epsilon > opt.min_epsilon:
+            #     epsilon *= opt.epsilon_decay
+            #     epsilon = max(opt.min_epsilon, epsilon)
+                
+            # Linear Epsilon Decay
+            if epsilon > opt.min_epsilon:
+                epsilon = (opt.epsilon - opt.min_epsilon) * (num_episodes - episode) / num_episodes + opt.min_epsilon
 
 
     def train(self, terminal_state):
