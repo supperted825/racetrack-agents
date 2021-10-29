@@ -73,7 +73,7 @@ class PPOAgent():
 
             with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
                 write = csv.writer(file)
-                write.writerow(['Total Steps', 'Avg Reward', 'Min Reward', 'Max Reward', 'Avg Ep Length'])
+                write.writerow(['Total Steps', 'Avg Reward', 'Min Reward', 'Max Reward', 'Eval Reward', 'Avg Ep Length'])
             
             with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
                 args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
@@ -102,8 +102,9 @@ class PPOAgent():
         
         logging.info(40*"-")
         logging.info(f"Total Steps: {self.total_steps}")
-        logging.info(f"Average Reward: {avg_reward:.3f}")
-        logging.info(f"Average Episode Length: {self.avg_ep_len:.3f}")
+        logging.info(f"Average Train Reward: {avg_reward:.3f}")
+        logging.info(f"Average Train Ep Length: {self.avg_ep_len:.3f}")
+        logging.info(f"Average Eval Reward: {self.eval_reward:.3f}")
         logging.info(f"Num. Model Updates: {self.num_updates}")
         
         if len(self.losses) > 0:
@@ -194,21 +195,32 @@ class PPOAgent():
         avg_reward = np.mean(ep_rewards)
         min_reward = np.min(ep_rewards)
         max_reward = np.max(ep_rewards)
-
+        
+        # Run Three Evaluation Runs (Deterministic Actions)
+        eval_rewards = []
+        for _ in range(3):
+            obs, rew, done = env.reset(), 0, False
+            while not done:
+                action, _ = self.policy(np.expand_dims(obs/255, axis=0))
+                obs, reward, done, _ = env.step(action)
+                rew += reward
+            eval_rewards.append(rew)
+        self.eval_reward = np.mean(eval_rewards)
+            
         # Show Training Progress on Console
         self.callback(avg_reward)
 
-        self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, avg_ep_len=self.avg_ep_len)
+        self.write_log(self.total_steps, reward_avg=avg_reward, reward_min=min_reward,
+                       reward_max=max_reward, eval_reward=self.eval_reward, avg_ep_len=self.avg_ep_len)
 
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
-        if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
+        if self.eval_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
-            self.policy.save(f'{opt.exp_dir}/R{avg_reward:.0f}.model')
+            self.policy.save(f'{opt.exp_dir}/R{self.eval_reward/3:.0f}.model')
         
         if self.best > 120 and self.TARGET_KL == None:
-            logging.info("Decaying PPO Clip & Learning Rate!")
+            logging.info("Decaying PPO Clip!")
             self.PPO_EPSILON = 0.1
-            self.optimizer.learning_rate.assign(self.lr/10)
 
 
     def process_replay(self, mem):
