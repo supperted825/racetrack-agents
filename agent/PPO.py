@@ -206,8 +206,9 @@ class PPOAgent():
             self.policy.save(f'{opt.exp_dir}/R{avg_reward:.0f}.model')
         
         if self.best > 120 and self.TARGET_KL == None:
-            logging.info("Decaying PPO Clip to 0.1!")
+            logging.info("Decaying PPO Clip & Learning Rate!")
             self.PPO_EPSILON = 0.1
+            self.optimizer.learning_rate.assign(self.lr/10)
 
 
     def process_replay(self, mem):
