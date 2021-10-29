@@ -95,9 +95,9 @@ class RaceTrackEnv(AbstractEnv):
 
             # Reward Values
             "collision_reward": -2,
-            "action_reward": 0.6,
+            "action_reward": 1,
             "offroad_penalty": -1,
-            "lane_centering_cost": 4,
+            "lane_centering_cost": 3,
             "subgoal_reward_ratio": 1,
 
             # Rendering Information
