@@ -1,4 +1,3 @@
-from tqdm import tqdm
 from gym.wrappers import Monitor
 from racetrack_env import RaceTrackEnv
 
@@ -103,68 +102,6 @@ def display_observations(obs):
     plt.show()
 
 
-def trainDQN(env, agent, num_episodes, opt):
-
-    """Training Sequence for DQN"""
-    rewards, best = [], 0
-    epsilon = opt.epsilon
-
-    for episode in tqdm(range(1, num_episodes + 1)):
-
-        episode_reward = 0
-        obs = env.reset() if not opt.debug == 2 else env.reset().T
-        done = False
-
-        while not done:
-
-            # E-Soft Action Selection
-            if np.random.random() > epsilon:
-                action_idx = np.argmax(agent.get_qvalues(obs))
-            elif opt.num_actions == 2:
-                action_idx = np.random.randint(0, len(DISCRETE_ACTION_SPACE))
-            else:
-                action_idx = np.random.randint(0, len(SIMPLE_DISCRETE_ACTION_SPACE))
-
-            # Step through Environment with Continuous Actions
-            new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
-                                                SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
-            episode_reward += reward
-
-            # Update Replay Memory & Train Agent Model
-            if opt.debug == 2:
-                new_obs = new_obs.T
-            agent.update_replay((obs, action_idx, reward, new_obs, done))
-            agent.train(done)
-
-            obs = new_obs
-
-        # Log Episode Rewards
-        rewards.append(episode_reward)
-        print(episode_reward)
-        
-        # For Logging Interval, Extract Average, Lowest, Best Reward Attained
-        if episode % opt.log_freq == 0 or episode == 1:
-            avg_reward = round(np.mean(rewards[-opt.log_freq:]),3)
-            min_reward = round(np.min(rewards[-opt.log_freq:]),3)
-            max_reward = round(np.max(rewards[-opt.log_freq:]),3)
-            agent.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
-
-            # Save Model if Average Reward is Greater than a Minimum & Better than Before
-            if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
-                best = avg_reward
-                agent.model.save(f'{opt.exp_dir}/last_best.model')
-
-        # Decay Epsilon
-        if epsilon > opt.min_epsilon:
-            epsilon *= opt.epsilon_decay
-            epsilon = max(opt.min_epsilon, epsilon)
-            
-        """
-        # Linear Epsilon Decay
-        if epsilon > opt.min_epsilon:
-            epsilon = opt.epsilon - episode/num_episodes * (opt.epsilon - opt.min_epsilon)
-        """
-
 if __name__ == "__main__":
     
     # Parse Arguments
@@ -183,7 +120,7 @@ if __name__ == "__main__":
         agent = GET_AGENT[opt.agent](opt=opt)
         
         if opt.agent in ["DQN", "CDQN"]:
-            trainDQN(env, agent, int(opt.num_episodes), opt)
+            agent.learn(env, opt)
         else:
             agent.learn(env, opt)
 
