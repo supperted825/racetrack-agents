@@ -9,3 +9,4 @@ test.py
 *.pbs
 *.DS_Store
 *__pycache__
+*.ipynb
