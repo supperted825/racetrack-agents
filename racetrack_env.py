@@ -137,7 +137,7 @@ class RaceTrackEnv(AbstractEnv):
             
         # If Crashed - Big Negative Penalty
         if self.vehicle.crashed:
-            reward = self.config["collission_reward"]
+            reward = self.config["collision_reward"]
 
         # Count Steps Spent Offroad for Early Stopping (See _is_terminal())
         if not self.vehicle.on_road:
