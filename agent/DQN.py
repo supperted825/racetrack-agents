@@ -176,6 +176,8 @@ class DQNAgent(object):
             # Linear Epsilon Decay
             if epsilon > opt.min_epsilon:
                 epsilon = (opt.epsilon - opt.min_epsilon) * (num_episodes - episode) / num_episodes + opt.min_epsilon
+                
+        self.model.save(f'{opt.exp_dir}/model_last.model')
 
 
     def train(self, terminal_state):
