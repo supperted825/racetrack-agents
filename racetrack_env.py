@@ -56,11 +56,17 @@ class RaceTrackEnv(AbstractEnv):
                 "type": "ContinuousAction",
                 "longitudinal": False if opt.num_actions < 2 else True,
                 "lateral": True,
-                "dynamical": False
+                "dynamical": False,
+                "steering_range": [-np.pi / 6, np.pi / 6] if opt.env_type == 1 else [-np.pi / 4, np.pi / 4]
                 
             },
-            
+
             "spawn_vehicles": opt.spawn_vehicles,
+            
+            # Simulation Information
+            "duration": 600 if opt.env_type == 1 else 200,
+            "simulation_frequency": 15,
+            "policy_frequency": 15 if opt.env_type == 1 else 5,
             
         }
         
@@ -88,16 +94,11 @@ class RaceTrackEnv(AbstractEnv):
             "controlled_vehicles": 1,
             "ego_spacing": 2,
 
-            # Simulation Information
-            "duration": 200,
-            "simulation_frequency": 15,
-            "policy_frequency": 5,
-
             # Reward Values
             "collision_reward": -2,
-            "action_reward": 1,
+            "action_reward": 0.3,
             "offroad_penalty": -1,
-            "lane_centering_cost": 3,
+            "lane_centering_cost": 4,
             "subgoal_reward_ratio": 1,
 
             # Rendering Information
@@ -126,7 +127,10 @@ class RaceTrackEnv(AbstractEnv):
                         (self.vehicle.lane.length - longitudinal) / self.vehicle.lane.length
         
         # Reward for Reducing Distance to Lane Center
-        lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*lateral**2)
+        if np.abs(lateral) > 1:
+            lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*(lateral-1)**2)
+        else:
+            lane_centering_reward = 1
 
         # Combine Rewards
         reward = lane_centering_reward + action_reward + subgoal_reward

@@ -218,7 +218,7 @@ class PPOAgent():
             self.best = avg_reward
             self.policy.save(f'{opt.exp_dir}/R{self.eval_reward:.0f}.model')
         
-        if self.best > 120 and self.TARGET_KL == None:
+        if self.best > opt.min_reward - 30 and self.TARGET_KL == None:
             logging.info("Decaying PPO Clip!")
             self.PPO_EPSILON = 0.1
 

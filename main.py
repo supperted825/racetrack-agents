@@ -49,6 +49,7 @@ class opts(object):
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
         # Problem Space Settings
+        self.parser.add_argument('--env_type', default=0, type=int, help='To Use Iteration 0 or 1 of the Env')
         self.parser.add_argument('--obs_dim', default=(4,64,64), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
         self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
@@ -130,7 +131,8 @@ if __name__ == "__main__":
         total_reward, obs, seq = 0, env.reset(), []
         
         if opt.agent in ["DQN", "CDQN"]:
-            for _ in range(200):
+            done = False
+            while not done:
                 action_idx = model.predict(np.array([obs])/255)[0]
                 action_idx = np.argmax(action_idx)
                 obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
@@ -142,8 +144,9 @@ if __name__ == "__main__":
         else:
             
             if opt.obs_dim[0] in [1,4]:
-            
-                for _ in range(200):
+                
+                done = False            
+                while not done:
                     action = model(np.array([obs])/255)[0]
                     obs, reward, done, info = env.step(action)
                     total_reward += reward
@@ -151,8 +154,9 @@ if __name__ == "__main__":
                 print("Total Reward: ", total_reward)
                 
             else:
-            
-                for _ in range(200):
+                
+                done = False
+                while not done:
                     action = model(np.array([obs]))[0]
                     obs, reward, done, info = env.step(action)
                     total_reward += reward
