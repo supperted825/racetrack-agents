@@ -64,6 +64,7 @@ class RaceTrackEnv(AbstractEnv):
             "spawn_vehicles": opt.spawn_vehicles,
             
             # Simulation Information
+            "env_type": opt.env_type,
             "duration": 600 if opt.env_type == 1 else 200,
             "simulation_frequency": 15,
             "policy_frequency": 15 if opt.env_type == 1 else 5,
@@ -127,10 +128,13 @@ class RaceTrackEnv(AbstractEnv):
                         (self.vehicle.lane.length - longitudinal) / self.vehicle.lane.length
         
         # Reward for Reducing Distance to Lane Center
-        if np.abs(lateral) > 1:
-            lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*(lateral-1)**2)
+        if self.config["env_type"] == 0:
+            lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*(lateral)**2)
         else:
-            lane_centering_reward = 1
+            if np.abs(lateral) > 1:
+                lane_centering_reward = 1/(1+self.config["lane_centering_cost"]*(lateral-1)**2)
+            else:
+                lane_centering_reward = 1
 
         # Combine Rewards
         reward = lane_centering_reward + action_reward + subgoal_reward
