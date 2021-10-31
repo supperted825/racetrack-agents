@@ -310,11 +310,8 @@ class RaceTrackEnv(AbstractEnv):
         # Populate the Environment with One Other Vehicle
         if self.config["spawn_vehicles"] > 0:
             vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
-                                            longitudinal=random.uniform(
-                                                low=0,
-                                                high=self.road.network.get_lane(("b", "c", 0)).length
-                                            ),
-                                            speed=6+random.uniform(high=1))
+                                            longitudinal=0,
+                                            speed=4)
             self.road.vehicles.append(vehicle)
 
         # Populate the Environment with A Number of Other Vehicles
@@ -325,7 +322,7 @@ class RaceTrackEnv(AbstractEnv):
                                                   low=0,
                                                   high=self.road.network.get_lane(random_lane_index).length
                                               ),
-                                              speed=6+random.uniform(high=1))
+                                              speed=4)
             # Prevent early collisions
             for v in self.road.vehicles:
                 if np.linalg.norm(vehicle.position - v.position) < 5:
