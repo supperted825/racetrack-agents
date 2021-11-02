@@ -37,7 +37,7 @@ class RaceTrackEnv(AbstractEnv):
                 "type": "OccupancyGrid",
                 "features": ['presence', 'on_road'],
                 "grid_size": [[-18, 18], [-18, 18]],
-                "grid_step": [1, 1],
+                "grid_step": [2, 2],
                 "as_image": False,
                 "align_to_vehicle_axes": True
                 
@@ -325,7 +325,7 @@ class RaceTrackEnv(AbstractEnv):
                                               speed=4)
             # Prevent early collisions
             for v in self.road.vehicles:
-                if np.linalg.norm(vehicle.position - v.position) < 5:
+                if np.linalg.norm(vehicle.position - v.position) < 15:
                     break
             else:
                 self.road.vehicles.append(vehicle)
