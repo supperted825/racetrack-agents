@@ -97,7 +97,8 @@ class opts(object):
 
 def display_observations(obs):
     """Display Grayscale Observation Plots"""
-    _, axes = plt.subplots(ncols=4, figsize=(12, 5))
+    obs = np.array([o.T for o in obs])
+    _, axes = plt.subplots(ncols=2, figsize=(12, 5))
     for i, ax in enumerate(axes.flat):
        ax.imshow(obs[i, ...].T, cmap=plt.get_cmap('gray'))
     plt.show()
@@ -166,7 +167,8 @@ if __name__ == "__main__":
     elif opt.mode == "manual":
         
         env.configure({"manual_control": True})
-        env.reset()
+        obs = env.reset()
+        # display_observations(obs)
         total_reward, done = 0, False
         
         while not done:
