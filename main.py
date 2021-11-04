@@ -11,12 +11,14 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
+from agent.A3C import A3CAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
     "PPO" : PPOAgent,
+    "A3C" : A3CAgent
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -44,7 +46,7 @@ class opts(object):
         self.parser.add_argument('--save_video', action='store_true', help='Saves Env Render as Video')
 
         # Neural Network Settings
-        self.parser.add_argument('--arch', default='DoubleConv', help='Neural Net Backbone')
+        self.parser.add_argument('--arch', default='Identity', help='Neural Net Backbone')
         self.parser.add_argument('--fc_layers', default=2, type=int, help='Number of Dense Layers')
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
@@ -59,6 +61,7 @@ class opts(object):
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
         self.parser.add_argument('--log_freq', default=20, type=int, help='Frequency of Logging (Episodes)')
+        self.parser.add_argument('--eval_freq', default=100, type=int, help='Frequency to Run Evaluation Runs')
         self.parser.add_argument('--min_reward', default=50, type=int, help='Minimum Reward to Save Model')
 
         # Hyperparameters
@@ -81,6 +84,12 @@ class opts(object):
         self.parser.add_argument('--gae_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--ppo_epsilon', default=0.2, type=float, help='Clipping Loss Epsilon')
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
+        
+        # A3C Hyperparameters
+        self.parser.add_argument('--a3c_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--a3c_entropy', default=0.01, type=float, help='Regulariser Entropy Loss Ratio')
+        self.parser.add_argument('--a3c_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
+        self.parser.add_argument('--update_global_freq', default=20, type=int, help='Frequency of Updating Master Agent')
 
     def parse(self, args=''):
         if args == '':
@@ -144,25 +153,13 @@ if __name__ == "__main__":
 
         else:
             
-            if opt.obs_dim[0] in [1,4]:
-                
-                done = False            
-                while not done:
-                    action = model(np.array([obs])/255)[0]
-                    obs, reward, done, info = env.step(action)
-                    total_reward += reward
-                    print(reward)
-                print("Total Reward: ", total_reward)
-                
-            else:
-                
-                done = False
-                while not done:
-                    action = model(np.array([obs]))[0]
-                    obs, reward, done, info = env.step(action)
-                    total_reward += reward
-                    print(reward)
-                print("Total Reward: ", total_reward)
+            done = False            
+            while not done:
+                action = model(np.array([obs])/255)[0]
+                obs, reward, done, info = env.step(action)
+                total_reward += reward
+                print(reward)
+            print("Total Reward: ", total_reward)
             
     elif opt.mode == "manual":
         
