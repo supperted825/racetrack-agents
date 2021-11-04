@@ -33,7 +33,7 @@ class DQNAgent(object):
         self.lr = opt.lr
         self.batch_size = opt.batch_size
         self.num_actions = opt.num_actions
-        self.mode = opt.obs_dim[0]
+        self.eval_reward = 0
 
         # DQN Hyperparameters
         self.GAMMA = opt.dqn_gamma
@@ -53,14 +53,12 @@ class DQNAgent(object):
 
         # Logging
         time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
-        # self.writer = tf.summary.create_file_writer(logdir=f"logs/{self.name}-{time}")
-
         self.logdir = f"{opt.exp_dir}/log_{time}"
         os.mkdir(self.logdir)
 
         with open(self.logdir + '/log.csv', 'w+', newline ='') as file:
             write = csv.writer(file)
-            write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Epsilon'])
+            write.writerow(['Step', 'Avg Reward', 'Min Reward', 'Max Reward', 'Eval Reward', 'Epsilon'])
 
         with open(self.logdir + '/opt.txt', 'w+', newline ='') as file:
             args = dict((name, getattr(opt, name)) for name in dir(opt) if not name.startswith('_'))
@@ -69,12 +67,6 @@ class DQNAgent(object):
 
 
     def write_log(self, step, **logs):
-        """Write Episode Information to Tensorboard"""
-        # with self.writer.as_default():
-        #     for name, value in logs.items():
-        #         tf.summary.scalar(name, value, step=step)
-        #         self.writer.flush()
-        
         """Write Episode Information to CSV File"""
         line = [step] + [round(value,3) for value in logs.values()]
         with open(self.logdir + '/log.csv', 'a', newline ='') as file:
@@ -112,10 +104,7 @@ class DQNAgent(object):
 
     def get_qvalues(self, state):
         """Get Q Value Outputs from Target Model"""
-        if self.mode == 2:
-            return self.target_model.predict(np.array(state).reshape(-1, *state.shape))[0]
-        else:
-            return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
+        return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
 
 
     def learn(self, env, opt):
@@ -158,20 +147,30 @@ class DQNAgent(object):
             
             # For Logging Interval, Extract Average, Lowest, Best Reward Attained
             if episode % opt.log_freq == 0 or episode == 1:
+                
+                # Run One Evaluation Runs (Deterministic Actions)
+                if episode % opt.eval_freq == 0:
+                    obs, self.eval_reward, done = env.reset(), 0, False
+                    while not done:
+                        action_idx = np.argmax(self.get_qvalues(obs))
+                        new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
+                                                            SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
+                        self.eval_reward += reward
+
+                # Get Average Stats for Latest Range of Episodes
                 avg_reward = round(np.mean(rewards[-opt.log_freq:]),3)
                 min_reward = round(np.min(rewards[-opt.log_freq:]),3)
                 max_reward = round(np.max(rewards[-opt.log_freq:]),3)
-                self.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, epsilon=epsilon)
+                self.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, eval_reward=self.eval_reward, epsilon=epsilon)
 
                 # Save Model if Average Reward is Greater than a Minimum & Better than Before
-                if avg_reward >= np.max([opt.min_reward, best]) and opt.save_model:
-                    best = avg_reward
+                if self.eval_reward>= np.max([opt.min_reward, best]) and opt.save_model:
+                    best = self.eval_reward
                     self.model.save(f'{opt.exp_dir}/last_best.model')
-
-            # # Exponential Epsilon Decay
-            # if epsilon > opt.min_epsilon:
-            #     epsilon *= opt.epsilon_decay
-            #     epsilon = max(opt.min_epsilon, epsilon)
+            
+            # Checkpoint Model every 200 Episodes
+            if episode % 200 == 0:
+                self.model.save(f'{opt.exp_dir}/checkpoint_{episode}.model')
                 
             # Linear Epsilon Decay
             if epsilon > opt.min_epsilon:
@@ -190,12 +189,8 @@ class DQNAgent(object):
         # Sample Batch of Data for Updating Model
         minibatch = random.sample(self.replay_memory, self.batch_size)
 
-        if self.mode == 2:
-            current_states = np.array([item[0] for item in minibatch])
-            new_current_states = np.array([item[3] for item in minibatch])
-        else:
-            current_states = np.array([item[0] for item in minibatch])/255
-            new_current_states = np.array([item[3] for item in minibatch])/255
+        current_states = np.array([item[0] for item in minibatch])/255
+        new_current_states = np.array([item[3] for item in minibatch])/255
         
         current_qvalues = self.model.predict(current_states)
         future_qvalues = self.model.predict(new_current_states)
@@ -217,12 +212,6 @@ class DQNAgent(object):
             x.append(current_state)
             y.append(current_qvalue)
 
-        if self.mode == 2:
-            self.model.fit(
-                np.array(x), np.array(y),
-                batch_size=self.batch_size, verbose=0,
-                shuffle=False if terminal_state else None)
-        else:
             self.model.fit(
                 np.array(x)/255, np.array(y),
                 batch_size=self.batch_size, verbose=0,
@@ -247,12 +236,8 @@ class CDQNAgent(DQNAgent):
         
         minibatch = random.sample(self.replay_memory, self.batch_size)
         
-        if self.mode == 2:
-            current_states = np.array([item[0] for item in minibatch])
-            new_current_states = np.array([item[3] for item in minibatch])
-        else:
-            current_states = np.array([item[0] for item in minibatch])/255
-            new_current_states = np.array([item[3] for item in minibatch])/255
+        current_states = np.array([item[0] for item in minibatch])/255
+        new_current_states = np.array([item[3] for item in minibatch])/255
 
         current_qvalues = self.model.predict(current_states)
         new_current_qvalues = self.model.predict(new_current_states)
@@ -275,16 +260,10 @@ class CDQNAgent(DQNAgent):
             x.append(current_state)
             y.append(current_qvalue)
 
-        if self.mode == 2:
-            self.model.fit(
-                np.array(x), np.array(y),
-                batch_size=self.batch_size, verbose=0,
-                shuffle=False if terminal_state else None)
-        else:
-            self.model.fit(
-                np.array(x)/255, np.array(y),
-                batch_size=self.batch_size, verbose=0,
-                shuffle=False if terminal_state else None)
+        self.model.fit(
+            np.array(x)/255, np.array(y),
+            batch_size=self.batch_size, verbose=0,
+            shuffle=False if terminal_state else None)
 
         if terminal_state:
             self.target_update_counter += 1

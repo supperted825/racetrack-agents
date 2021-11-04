@@ -218,6 +218,10 @@ class PPOAgent():
             self.best = avg_reward
             self.policy.save(f'{opt.exp_dir}/R{self.eval_reward:.0f}.model')
         
+        # Save Model Every 20 PPO Update Iterations
+        if self.total_steps % (20 * self.memory_size) == 0:
+            self.policy.save(f'{opt.exp_dir}/checkpoint_{self.total_steps}.model')
+        
         if self.best > opt.min_reward - 30 and self.TARGET_KL == None:
             logging.info("Decaying PPO Clip!")
             self.PPO_EPSILON = 0.1
