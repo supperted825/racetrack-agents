@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers.schedules import PolynomialDecay
 
 from collections import deque
 import os
@@ -19,7 +20,7 @@ DISCRETE_ACTION_SPACE = {
     }
 
 SIMPLE_DISCRETE_ACTION_SPACE = {
-        0: [-1], 1 : [0], 2 : [1]
+        0: [-0.5], 1 : [0], 2 : [0.5]
     }
 
 
@@ -33,7 +34,6 @@ class DQNAgent(object):
         self.lr = opt.lr
         self.batch_size = opt.batch_size
         self.num_actions = opt.num_actions
-        self.eval_reward = 0
 
         # DQN Hyperparameters
         self.GAMMA = opt.dqn_gamma
@@ -91,7 +91,8 @@ class DQNAgent(object):
             model.add(Dense(3, activation="linear"))
 
         # Compile & Visualise Model in Console
-        model.compile(loss="mse", optimizer=Adam(learning_rate=self.lr))
+        lr_schedule = PolynomialDecay(self.lr, opt.num_episodes * 200, end_learning_rate=0)
+        model.compile(loss="mse", optimizer=Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr))
         model.summary()
 
         return model
@@ -104,14 +105,14 @@ class DQNAgent(object):
 
     def get_qvalues(self, state):
         """Get Q Value Outputs from Target Model"""
-        return self.target_model.predict(np.array(state).reshape(-1, *state.shape)/255)[0]
+        return self.target_model.predict_on_batch(np.array(state).reshape(-1, *state.shape)/255)[0]
 
 
     def learn(self, env, opt):
         """Training Sequence for DQN"""
         
         num_episodes = opt.num_episodes
-        rewards, best = [], 0
+        rewards, eval_rewards, best = [], [], 0
         epsilon = opt.epsilon
 
         for episode in range(1, num_episodes + 1):
@@ -137,39 +138,44 @@ class DQNAgent(object):
 
                 # Update Replay Memory & Train Agent Model
                 self.update_replay((obs, action_idx, reward, new_obs, done))
-                self.train(done)
+                self.train()
 
                 obs = new_obs
 
             # Log Episode Rewards
             rewards.append(episode_reward)
-            print(episode_reward)
+            print(f"Episode {episode} | Training: {episode_reward:.3f}", end=' | ')
             
-            # For Logging Interval, Extract Average, Lowest, Best Reward Attained
+            # Run One Evaluation Run (Deterministic Actions)
+            obs, eval_reward, done = env.reset(), 0, False
+            while not done:
+                action_idx = np.argmax(self.model.predict_on_batch(np.array([obs])/255)[0])
+                obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
+                                                SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
+                eval_reward += reward
+            eval_rewards.append(eval_reward)
+            
+            print(f"Evaluation: {eval_reward:.3f}")
+            
+            # For Logging Interval, Extract Average, Lowest, Best Reward / Eval Reward Attained
             if episode % opt.log_freq == 0 or episode == 1:
-                
-                # Run One Evaluation Runs (Deterministic Actions)
-                if episode % opt.eval_freq == 0:
-                    obs, self.eval_reward, done = env.reset(), 0, False
-                    while not done:
-                        action_idx = np.argmax(self.get_qvalues(obs))
-                        new_obs, reward, done, _ = env.step(DISCRETE_ACTION_SPACE[action_idx] if opt.num_actions == 2 else
-                                                            SIMPLE_DISCRETE_ACTION_SPACE[action_idx])
-                        self.eval_reward += reward
 
                 # Get Average Stats for Latest Range of Episodes
                 avg_reward = round(np.mean(rewards[-opt.log_freq:]),3)
                 min_reward = round(np.min(rewards[-opt.log_freq:]),3)
                 max_reward = round(np.max(rewards[-opt.log_freq:]),3)
-                self.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, eval_reward=self.eval_reward, epsilon=epsilon)
+                eval_reward = round(np.mean(eval_rewards[-opt.log_freq:]),3)
+                
+                self.write_log(episode, reward_avg=avg_reward, reward_min=min_reward, reward_max=max_reward, eval_reward=eval_reward, epsilon=epsilon)
 
-                # Save Model if Average Reward is Greater than a Minimum & Better than Before
-                if self.eval_reward>= np.max([opt.min_reward, best]) and opt.save_model:
-                    best = self.eval_reward
-                    self.model.save(f'{opt.exp_dir}/last_best.model')
+            # Save Model if Eval Reward is Greater than a Minimum & Better than Before
+            if eval_reward >= np.max([opt.min_reward, best]) and opt.save_model:
+                best = eval_reward
+                print("New best model achieved. Saving!")
+                self.model.save(f'{opt.exp_dir}/last_best.model')
             
-            # Checkpoint Model every 200 Episodes
-            if episode % 200 == 0:
+            # Checkpoint Model every 100 Episodes
+            if episode % 100 == 0:
                 self.model.save(f'{opt.exp_dir}/checkpoint_{episode}.model')
                 
             # Linear Epsilon Decay
@@ -179,7 +185,7 @@ class DQNAgent(object):
         self.model.save(f'{opt.exp_dir}/model_last.model')
 
 
-    def train(self, terminal_state):
+    def train(self):
         """Training Sequence for DQN Agent"""
 
         # Don't Train Unless Sufficient Data
@@ -192,8 +198,8 @@ class DQNAgent(object):
         current_states = np.array([item[0] for item in minibatch])/255
         new_current_states = np.array([item[3] for item in minibatch])/255
         
-        current_qvalues = self.model.predict(current_states)
-        future_qvalues = self.model.predict(new_current_states)
+        current_qvalues = self.model.predict_on_batch(current_states)
+        future_qvalues = self.model.predict_on_batch(new_current_states)
 
         x, y = [], []
 
@@ -212,13 +218,8 @@ class DQNAgent(object):
             x.append(current_state)
             y.append(current_qvalue)
 
-            self.model.fit(
-                np.array(x)/255, np.array(y),
-                batch_size=self.batch_size, verbose=0,
-                shuffle=False if terminal_state else None)
-
-        if terminal_state:
-            self.target_update_counter += 1
+        self.model.train_on_batch(np.array(x)/255, np.array(y))
+        self.target_update_counter += 1
         
         if self.target_update_counter > self.UPDATE_FREQ:
             self.target_model.set_weights(self.model.get_weights())
@@ -228,7 +229,7 @@ class DQNAgent(object):
 class CDQNAgent(DQNAgent):
     """Double DQN Agent With Clipping"""
 
-    def train(self, terminal_state):
+    def train(self):
         """Modified Training Sequence with Clipped Update Rule"""
 
         if len(self.replay_memory) < self.MIN_REPLAY_SIZE:
@@ -239,9 +240,9 @@ class CDQNAgent(DQNAgent):
         current_states = np.array([item[0] for item in minibatch])/255
         new_current_states = np.array([item[3] for item in minibatch])/255
 
-        current_qvalues = self.model.predict(current_states)
-        new_current_qvalues = self.model.predict(new_current_states)
-        new_future_qvalues = self.target_model.predict(new_current_states)
+        current_qvalues = self.model.predict_on_batch(current_states)
+        new_current_qvalues = self.model.predict_on_batch(new_current_states)
+        new_future_qvalues = self.target_model.predict_on_batch(new_current_states)
 
         x, y = [], []
 
@@ -260,13 +261,8 @@ class CDQNAgent(DQNAgent):
             x.append(current_state)
             y.append(current_qvalue)
 
-        self.model.fit(
-            np.array(x)/255, np.array(y),
-            batch_size=self.batch_size, verbose=0,
-            shuffle=False if terminal_state else None)
-
-        if terminal_state:
-            self.target_update_counter += 1
+        self.model.train_on_batch(np.array(x)/255, np.array(y))
+        self.target_update_counter += 1
         
         if self.target_update_counter > self.UPDATE_FREQ:
             self.target_model.set_weights(self.model.get_weights())
