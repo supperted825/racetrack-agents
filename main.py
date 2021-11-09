@@ -28,7 +28,7 @@ DISCRETE_ACTION_SPACE = {
     }
 
 SIMPLE_DISCRETE_ACTION_SPACE = {
-        0: [-1], 1 : [0], 2 : [1]
+        0: [-0.5], 1 : [0], 2 : [0.5]
     }
 
 
@@ -86,10 +86,9 @@ class opts(object):
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
         
         # A3C Hyperparameters
-        self.parser.add_argument('--a3c_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
-        self.parser.add_argument('--a3c_entropy', default=0.01, type=float, help='Regulariser Entropy Loss Ratio')
-        self.parser.add_argument('--a3c_sigma', default=0.2, type=float, help='Actor Continuous Action Variance')
-        self.parser.add_argument('--update_global_freq', default=20, type=int, help='Frequency of Updating Master Agent')
+        self.parser.add_argument('--a3c_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--update_global_freq', default=5, type=int, help='Frequency of Updating Master Agent')
+        self.parser.add_argument('--num_workers', default=None, type=int, help='Number of Workers')
 
     def parse(self, args=''):
         if args == '':
