@@ -96,7 +96,7 @@ class RaceTrackEnv(AbstractEnv):
             "ego_spacing": 2,
 
             # Reward Values
-            "collision_reward": -2,
+            "collision_reward": -5,
             "action_reward": 0.3,
             "offroad_penalty": -1,
             "lane_centering_cost": 4,
