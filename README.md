@@ -6,12 +6,8 @@ We train the agents to perform two types of tasks. First, to simply learn lane f
 
 <br>
 
-# Demo
-
-We successfully train DQN & PPO on both tasks as shown below:
-
 <p align="center">
-    <img src="./media/DQN2.gif" width="70%", height="70%"<br/>
+    <img src="./media/DQN2.gif" width="80%", height="80%"<br/>
     <em><br>The DQN Agent Performing Laning & Overtaking.</em>
 </p>
 
