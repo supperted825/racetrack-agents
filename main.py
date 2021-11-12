@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     # For Recording or Visualisation
     if opt.save_video:
-        env = Monitor(env, './videos/', force=True)
+        env = Monitor(env, f'./videos/{opt.exp_id}', force=True)
 
     if opt.mode == "train":
         
