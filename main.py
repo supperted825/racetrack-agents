@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-from agent.A3C import A3CAgent
+# from agent.A3C import A3CAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
     "PPO" : PPOAgent,
-    "A3C" : A3CAgent
+    # "A3C" : A3CAgent
 }
 
 DISCRETE_ACTION_SPACE = {
