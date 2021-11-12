@@ -1,11 +1,23 @@
-# ME5406 Project 2
+# ME5406 Project 2 - RL Agents for RaceTrackEnv
+
+A reinforcement learning project for simultaneous lane-following and obstacle avoidance while handling interactions with other vehicles. The [highway_env API](https://github.com/eleurent/highway-env) is used for simulation.
+
+We train the agents to perform two types of tasks. First, to simply learn lane following and traverse the track. Next, we introduce three randomly spawned non-agent vehicles around the train that move at a slower speed. The agent must simultaneously learn to overtake and traverse the track.
+
+<br>
+
+# Demo
+
+We successfully train DQN & PPO on both tasks as shown below:
+
+<p align="center">
+    <img src="./media/DQN2.gif" width="70%", height="70%"<br/>
+    <em><br>The DQN Agent Performing Laning & Overtaking.</em>
+</p>
 
 
-A reinforcement learning task for simultaneous lane-following and obstacle avoidance while handling interactions with other vehicles. The [highway_env API](https://github.com/eleurent/highway-env) is used for simulation.
 
-<br/>
-
-## Files
+# Files
 
 * [main.py](main.py) - Main python file for running training & testing sequences. Can be run with various options.
 
@@ -19,61 +31,42 @@ A reinforcement learning task for simultaneous lane-following and obstacle avoid
 
 * [requirements.txt](requirements.txt) - Conda environment for running the project.
 
+* [models](/models/) - Trained Agent Models (Keras Model API) that can be loaded for demo.
+
 &nbsp;
 
-<i><b>NOTE:</b> A [similar version of racetrack_env.py](https://github.com/eleurent/highway-env/blob/master/highway_env/envs/racetrack_env.py) can be found in the original highway_env repo, and was contributed by us through https://github.com/eleurent/highway-env/issues/231.</i>
+<i><b>NOTE:</b> A [similar version of racetrack_env.py](https://github.com/eleurent/highway-env/blob/master/highway_env/envs/racetrack_env.py) can be found in the original highway_env repo, and was contributed by us through https://github.com/eleurent/highway-env/issues/231. Our env uses a slightly different reward structure than the original to facilitate training.</i>
 
 <br/>
 
-## Installation  
+# Load & Run Models
 
-First clone the repository 
-
-```
-git clone https://github.com/supperted825/ME5406P2.git
-```
-
-Then, create the conda environment with the required dependencies.
+First, please ensure you have the correct requirements installed.
 
 ```
 conda create --name <env> --file requirements.txt
 conda activate <env>
 ```
 
-To run experiments, run main.py while specifying options. See main file for available options.
+To load and run each model sequentially with visualisation, you may use the following commands:
 
 ```
-python main.py [--opts]
+python3 main.py --mode test --agent DQN --load_model ./models/DQN1.model --save_video
+python3 main.py --mode test --agent DQN --load_model ./models/DQN2.model --spawn_vehicles 3 --save_video
+python3 main.py --mode test --agent PPO --load_model ./models/PPO1.model --save_video
+python3 main.py --mode test --agent PPO --load_model ./models/PPO2.model --spawn_vehicles 3 --save_video
 ```
 
-<br/>
+# Training
 
-## Developing
-
-Create a branch with the name of the feature that you are working on in ~/highway_env.
+To run your own experiments, please look at main.py for the available options. For example, we train DQN on Task 2 with the following command:
 
 ```
-git co -b <branch name>
+python3 ./main.py --agent DQN \
+                --exp_id dqn2 \
+                --num_episodes 5000 --batch_size 256 \
+                --epsilon 0.6 --min_epsilon 0 \
+                --lr 0.00005 --lr_decay \
+                --arch Identity --fc_layers 3 \
+                --spawn_vehicles 3
 ```
-
-Now, you can edit the files as normal and develop.
-
-To register changes, be sure to stage the files by running the following at the root of the repo folder.
-
-```
-git add .
-```
-
-Throughout, you can commit changes with the following command. This doesn't push your changes online yet.
-
-```
-git commit -m "your message"
-```
-
-To submit your changes to the main repo, you will have to push with:
-
-```
-git push
-```
-
-Now, if you head back to the repo online, you should see "Compare and Pull Request". Click on it and enter a short description of your changes. Then you can select a reviewer and submit the code for merging with a pull request.
