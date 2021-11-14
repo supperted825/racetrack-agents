@@ -10,14 +10,9 @@ def DoubleConv(obs_shape):
 
     model.add(Permute((3,2,1), input_shape=obs_shape))
     model.add(Conv2D(64,(3,3)))
-    model.add(Activation("relu"))
-    model.add(MaxPooling2D(2,2))
-
     model.add(Conv2D(64,(3,3)))
-    model.add(Activation("relu"))
-    model.add(MaxPooling2D(2,2))
-
     model.add(Flatten())
+    model.add(Dense(256))
 
     return model
 
@@ -33,7 +28,7 @@ def NatureCnn(obs_shape):
     model.add(Conv2D(64, 3, strides=1, kernel_initializer="orthogonal"))
     
     model.add(Flatten())
-    model.add(Dense(512))
+    model.add(Dense(256))
     
     return model
 
