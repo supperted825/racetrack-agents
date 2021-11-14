@@ -2,7 +2,7 @@
 
 A reinforcement learning project for simultaneous lane-following and obstacle avoidance while handling interactions with other vehicles. The [highway_env API](https://github.com/eleurent/highway-env) is used for simulation.
 
-We train the agents to perform two types of tasks. First, to simply learn lane following and traverse the track. Next, we introduce three randomly spawned non-agent vehicles around the train that move at a slower speed. The agent must simultaneously learn to overtake and traverse the track.
+We train the agents to perform two types of tasks. In task 1, to simply learn lane following and traverse the track. For Task 2, we introduce three randomly spawned non-agent vehicles around the track that move at a slower speed. The agent must now simultaneously learn to overtake and traverse the track.
 
 <br>
 
