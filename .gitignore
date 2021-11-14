@@ -4,6 +4,7 @@ pbslogs/
 racetrack_ppo/
 jobscripts/
 test.py
+*.sh
 *.o*
 *.pbs
 *.DS_Store
