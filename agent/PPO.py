@@ -50,7 +50,7 @@ class PPOAgent():
 
             # Instantiate Model & Optimizer
             self.policy = PolicyModel(opt)
-            lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.memory_size * self.epochs, end_learning_rate=0)
+            lr_schedule = PolynomialDecay(self.lr, self.target_steps // self.memory_size * 12 * self.epochs, end_learning_rate=0)
             self.optimizer = Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
@@ -114,6 +114,7 @@ class PPOAgent():
             logging.info(f"Entropy Loss: {np.mean(self.e_losses):.5f}")
             logging.info(f"Approx KL Div: {np.mean(self.kl_divs):.3f}")
             logging.info(f"Policy Std Dev: {np.exp(self.policy.log_std.numpy()).squeeze():.3f}")
+            logging.info(f"Learning Rate: {self.optimizer._decayed_lr('float32').numpy():.8f}")
             
         logging.info(40*"-")
 
@@ -214,21 +215,21 @@ class PPOAgent():
                        reward_max=max_reward, eval_reward=self.eval_reward, avg_ep_len=self.avg_ep_len)
 
         # Save Model if Average Reward is Greater than a Minimum & Better than Before
-        if self.eval_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
+        if avg_reward >= np.max([opt.min_reward, self.best]) and opt.save_model:
             self.best = avg_reward
-            self.policy.save(f'{opt.exp_dir}/R{self.eval_reward:.0f}.model')
+            self.policy.save(f'{opt.exp_dir}/R{avg_reward:.0f}.model')
         
         # Save Model Every 20 PPO Update Iterations
-        if self.total_steps % (20 * self.memory_size) == 0:
+        if self.total_steps % (10 * self.memory_size) == 0:
             self.policy.save(f'{opt.exp_dir}/checkpoint_{self.total_steps}.model')
         
-        if self.best > opt.min_reward - 30 and self.TARGET_KL == None:
-            logging.info("Decaying PPO Clip!")
-            self.PPO_EPSILON = 0.1
+        # if self.best > opt.min_reward - 30 and self.TARGET_KL == None:
+        #     logging.info("Decaying PPO Clip!")
+        #     self.PPO_EPSILON = 0.1
 
 
     def process_replay(self, mem):
-        """Process Espisode Information for Value & Advantages"""
+        """Process Episode Information for Value & Advantages"""
 
         # Calculate Values & Log Probs
         vals = mem["vals"].flatten()
@@ -377,10 +378,13 @@ class PolicyModel(Model):
         
         for _ in range(opt.fc_layers):
             self.actor_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
-            self.critic_network.add(Dense(opt.fc_width, activation='tanh', kernel_initializer=Orthogonal(np.sqrt(2))))
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
 
+        for _ in range(opt.critic_layers):
+            self.critic_network.add(Dense(opt.fc_width, activation='relu', kernel_initializer=Orthogonal(np.sqrt(2))))
+        
         self.actor_network.add(Dense(opt.num_actions, activation='tanh', kernel_initializer=Orthogonal(0.01)))
-        self.critic_network.add(Dense(1, activation='tanh',kernel_initializer=Orthogonal(1)))
+        self.critic_network.add(Dense(1, activation='linear',kernel_initializer=Orthogonal(1)))
         
         self.actor_network.build(feature_output_dim)
         self.critic_network.build(feature_output_dim)
