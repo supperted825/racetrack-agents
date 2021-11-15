@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-# from agent.A3C import A3CAgent
+from agent.A3C import A3CAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
     "PPO" : PPOAgent,
-    # "A3C" : A3CAgent
+    "A3C" : A3CAgent
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -87,7 +87,7 @@ class opts(object):
         self.parser.add_argument('--target_kl', default=None, type=float, help='Max KL Divergence for Training Sequence')
         
         # A3C Hyperparameters
-        self.parser.add_argument('--a3c_gamma', default=0.9, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--a3c_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--update_global_freq', default=5, type=int, help='Frequency of Updating Master Agent')
         self.parser.add_argument('--num_workers', default=None, type=int, help='Number of Workers')
 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     # For Recording or Visualisation
     if opt.save_video:
-        env = Monitor(env, './videos/', force=True)
+        env = Monitor(env, f'./videos/{opt.exp_id}', force=True)
 
     if opt.mode == "train":
         
