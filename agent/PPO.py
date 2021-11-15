@@ -38,7 +38,7 @@ class PPOAgent():
             self.batch_size = opt.batch_size
             self.num_actions = opt.num_actions
             self.obs_dim = opt.obs_dim
-            self.memory_size = 12 * opt.batch_size
+            self.memory_size = opt.ppo_memory_size
             self.target_steps = 200 * opt.num_episodes
 
             # PPO Hyperparameters
