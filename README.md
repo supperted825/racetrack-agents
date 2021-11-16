@@ -4,6 +4,10 @@ A reinforcement learning project for simultaneous lane-following and obstacle av
 
 We train the agents to perform two types of tasks. In task 1, to simply learn lane following and traverse the track. For Task 2, we introduce three randomly spawned non-agent vehicles around the track that move at a slower speed. The agent must now simultaneously learn to overtake and traverse the track.
 
+Available agents include Double DQN, Clipped Double DQN, PPO, A3C, DDPG. At present, only DQN is successfuly trained on both Task 2 and 1, while the other agents are successfully trained on Task 1 only.
+
+Special thanks to project-mates [@hwchua0209](@hwchua0209) and [@jeremyxychew](@jeremyxychew) for their work on the A3C & DDPG agents respectively.
+
 <br>
 
 <p align="center">
@@ -25,6 +29,10 @@ We train the agents to perform two types of tasks. In task 1, to simply learn la
 
 * [agent/PPO.py](/agent/PPO.py) - PPO Agent with Clipped Surrogate & GAE
 
+* [agent/A3C.py](/agent/A3C.py) - Asynchronous Advantage Actor-Critic (A3C) Agent
+
+* [agent/DDPG.py](/agent/DDPG.py) - Deep Deterministic Policy Gradient (DDPG) Agent
+
 * [requirements.txt](requirements.txt) - Conda environment for running the project.
 
 * [models](/models/) - Trained Agent Models (Keras Model API) that can be loaded for demo.
@@ -44,13 +52,14 @@ conda create --name <env> --file requirements.txt
 conda activate <env>
 ```
 
-To load and run each model sequentially with visualisation, you may use the following commands:
+To load and run each available model sequentially with visualisation, use the following commands:
 
 ```
 python3 main.py --mode test --agent DQN --load_model ./models/DQN1.model --save_video
 python3 main.py --mode test --agent DQN --load_model ./models/DQN2.model --spawn_vehicles 3 --save_video
 python3 main.py --mode test --agent PPO --load_model ./models/PPO1.model --save_video
-python3 main.py --mode test --agent PPO --load_model ./models/PPO2.model --spawn_vehicles 3 --save_video
+python3 main.py --mode test --agent A3C --load_model ./models/A3C1.model --save_video
+python3 main.py --mode test --agent DDPG --load_model ./models/DDPG1.model --save_video
 ```
 
 # Training
