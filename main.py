@@ -49,7 +49,6 @@ class opts(object):
         self.parser.add_argument('--arch', default='Identity', help='Neural Net Backbone')
         self.parser.add_argument('--fc_layers', default=2, type=int, help='Number of Dense Layers')
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
-        self.parser.add_argument('--critic_layers', default=1, type=int, help='Additional Critic Dense Layers')
 
         # Problem Space Settings
         self.parser.add_argument('--env_type', default=0, type=int, help='To Use Iteration 0 or 1 of the Env')
@@ -156,7 +155,7 @@ if __name__ == "__main__":
             
             done = False            
             while not done:
-                action = model(np.array([obs])/255)[0]
+                action = model(np.array([obs]))[0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward
                 print(reward)
