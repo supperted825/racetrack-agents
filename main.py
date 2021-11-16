@@ -11,14 +11,16 @@ import matplotlib.pyplot as plt
 
 from agent.DQN import DQNAgent, CDQNAgent
 from agent.PPO import PPOAgent
-# from agent.A3C import A3CAgent
+from agent.DDPG import DDPGAgent
+from agent.A3C import A3CAgent
 
 
 GET_AGENT = {
     "DQN" : DQNAgent,
     "CDQN": CDQNAgent,
     "PPO" : PPOAgent,
-    # "A3C" : A3CAgent
+    "DDPG": DDPGAgent,
+    "A3C" : A3CAgent
 }
 
 DISCRETE_ACTION_SPACE = {
@@ -89,6 +91,13 @@ class opts(object):
         self.parser.add_argument('--a3c_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
         self.parser.add_argument('--update_global_freq', default=5, type=int, help='Frequency of Updating Master Agent')
         self.parser.add_argument('--num_workers', default=None, type=int, help='Number of Workers')
+        
+        # DDPG Hyperparameters
+        self.parser.add_argument('--ddpg_actor_lr', default=0.001, type=float, help='DDPG Actor Learning Rate')
+        self.parser.add_argument('--ddpg_critic_lr', default=0.002, type=float, help='DDPG Critic Learning Rate')
+        self.parser.add_argument('--ddpg_gamma', default=0.99, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--ddpg_tau', default=0.005, type=float, help='Soft Update Coefficient')
+        self.parser.add_argument('--ddpg_best', default=False, type=bool, help='Get Best Scoring Model For DDPG')
 
     def parse(self, args=''):
         if args == '':
@@ -123,16 +132,12 @@ if __name__ == "__main__":
 
     # For Recording or Visualisation
     if opt.save_video:
-        env = Monitor(env, './videos/', force=True)
+        env = Monitor(env, f'./videos/{opt.agent}/', force=True)
 
     if opt.mode == "train":
         
         agent = GET_AGENT[opt.agent](opt=opt)
-        
-        if opt.agent in ["DQN", "CDQN"]:
-            agent.learn(env, opt)
-        else:
-            agent.learn(env, opt)
+        agent.learn(env, opt)
 
     elif opt.mode == "test":
         
@@ -140,6 +145,7 @@ if __name__ == "__main__":
         total_reward, obs, seq = 0, env.reset(), []
         
         if opt.agent in ["DQN", "CDQN"]:
+            
             done = False
             while not done:
                 action_idx = model.predict(np.array([obs])/255)[0]
@@ -149,6 +155,23 @@ if __name__ == "__main__":
                 total_reward += reward
                 print(reward)
             print("Total Reward: ", total_reward)
+            
+        elif opt.agent in ["DDPG"]:
+
+            agent = GET_AGENT[opt.agent](opt=opt)
+            agent.initialize_networks(obs)
+            if opt.ddpg_best == True:
+                agent.load_best()
+            else:
+                agent.load_models()
+
+            done = False
+            while not done:
+                action = agent.select_action(np.expand_dims(obs/255, axis=0), env, test_model=True)
+                obs, reward, done, _ = env.step(action)
+                total_reward += reward
+                print(reward)
+            print("Total Reward:", total_reward)
 
         else:
             
