@@ -61,7 +61,9 @@ class RaceTrackEnv(AbstractEnv):
                 
             },
 
-            "spawn_vehicles": opt.spawn_vehicles,
+            "all_random": opt.all_random,
+            "spawn_vehicles": opt.spawn_vehicles if not opt.all_random else opt.spawn_vehicles + 1,
+
             
             # Simulation Information
             "duration": 200,
@@ -301,7 +303,7 @@ class RaceTrackEnv(AbstractEnv):
         self.controlled_vehicles.append(ego_vehicle)
         
         # Populate the Environment with One Other Vehicle
-        if self.config["spawn_vehicles"] > 0:
+        if self.config["spawn_vehicles"] > 0 and not self.config["all_random"]:
             vehicle = IDMVehicle.make_on_lane(self.road, ("b", "c", 0),
                                             longitudinal=0,
                                             speed=4)

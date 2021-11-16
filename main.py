@@ -57,6 +57,7 @@ class opts(object):
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
         self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
         self.parser.add_argument('--spawn_vehicles', default=0, type=int, help='Number of Non-Agent Vehicles to Spawn, Set 0 to Disable')
+        self.parser.add_argument('--all_random', action='store_true', help='Whether to Train on All Random Vehicles')
         self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn (Unused)')
 
         # Experiment Settings
