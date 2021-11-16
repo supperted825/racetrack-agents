@@ -56,7 +56,7 @@ To load and run each available model sequentially with visualisation, use the fo
 python3 main.py --mode test --agent DQN --load_model ./models/DQN1.model --save_video
 python3 main.py --mode test --agent DQN --load_model ./models/DQN2.model --spawn_vehicles 3 --save_video
 python3 main.py --mode test --agent PPO --load_model ./models/PPO1.model --save_video
-python3 main.py --mode test --agent PPO --load_model ./models/PPO1.model --spawn_vehicles 3 --save_video
+python3 main.py --mode test --agent PPO --load_model ./models/PPO2.model --spawn_vehicles 3 --save_video
 python3 main.py --mode test --agent A3C --load_model ./models/A3C1.model --save_video
 python3 main.py --mode test --agent DDPG --load_model ./models/DDPG1.model --save_video
 ```
