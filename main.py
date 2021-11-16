@@ -38,7 +38,7 @@ class opts(object):
         
         # Configuration Settings
         self.parser.add_argument('--mode', default='train', help='Train, Test, Manual')
-        self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, PPO')
+        self.parser.add_argument('--agent', default='PPO', help='DQN, DDPG, A3C, PPO')
         self.parser.add_argument('--exp_id', default='default', help='Unique Experiment Name for Saving Logs & Models')
         self.parser.add_argument('--resume', action='store_true', help='Whether to Load Last Model for Further Training')
         self.parser.add_argument('--load_model', default=None, help='Model to load for Testing')
@@ -51,12 +51,11 @@ class opts(object):
         self.parser.add_argument('--fc_width', default=256, type=int, help='Number of Channels in Dense Layers')
 
         # Problem Space Settings
-        self.parser.add_argument('--env_type', default=0, type=int, help='To Use Iteration 0 or 1 of the Env')
         self.parser.add_argument('--obs_dim', default=(2,18,18), type=int, nargs=3, help='Agent Observation Space')
         self.parser.add_argument('--num_actions', default=1, type=int, help='Agent Action Space')
         self.parser.add_argument('--offroad_thres', default=-1, type=int, help='Number of Steps Agent is Allowed to Ride Offroad')
         self.parser.add_argument('--spawn_vehicles', default=0, type=int, help='Number of Non-Agent Vehicles to Spawn, Set 0 to Disable')
-        self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn')
+        self.parser.add_argument('--random_obstacles', default=0, type=int, help='Number of Static Obstacles to Spawn (Unused)')
 
         # Experiment Settings
         self.parser.add_argument('--num_episodes', default=10000, type=int, help='Number of Episodes to Train')
