@@ -103,10 +103,11 @@ class DDPGAgent():
 
         # Load Last Model if Resume is Specified
         if opt.resume:
-            weights2load = K.models.load_model(
+            weights2load = keras.models.load_model(
                 f'{opt.exp_dir}/last_best.model').get_weights()
             self.policy.set_weights(weights2load)
             logging.info("Loaded Weights from Last Best Model!")
+
 
     def write_log(self, ep, **logs):
         """Write Episode Information to CSV File"""
@@ -114,6 +115,7 @@ class DDPGAgent():
         with open(self.logdir + '/log.csv', 'a', newline='') as file:
             write = csv.writer(file)
             write.writerow(line)
+
 
     def update_network_params(self, tau=None):
         """Update Target Actor and Target Critic Network Parameters"""
@@ -133,9 +135,11 @@ class DDPGAgent():
             weights.append(weight * tau + target_weights[i]*(1-tau))
         self.critic_target.set_weights(weights)
 
+
     def remember(self, state, action, reward, next_state, done):
         """Store Transitions"""
         self.memory.push(state, action, reward, next_state, done)
+
 
     def save_models(self):
         """Save Model If Average Reward Obtained Is Higher Than Previous Averages"""
@@ -146,6 +150,7 @@ class DDPGAgent():
         self.critic_target.save_weights(
             self.critic_target.checkpoint_file_train)
 
+
     def save_best(self):
         """Save Model Of Best Score"""
         print("New Best Score! Saving Model...")
@@ -154,6 +159,7 @@ class DDPGAgent():
         self.critic.save_weights(self.critic.checkpoint_file_best)
         self.critic_target.save_weights(
             self.critic_target.checkpoint_file_best)
+
 
     def load_models(self):
         """Load Model To Use During Test"""
@@ -165,6 +171,7 @@ class DDPGAgent():
             self.critic_target.checkpoint_file_train)
         print("Model Loaded!")
 
+
     def load_best(self):
         """Load Best Scoring Model"""
         print("Loading Best Model...")
@@ -174,6 +181,7 @@ class DDPGAgent():
         self.critic_target.load_weights(
             self.critic_target.checkpoint_file_best)
         print("Best Model Loaded!")
+
 
     def initialize_networks(self, obs):
         """Initialize Networks For Weights To Be Loaded"""
@@ -188,6 +196,7 @@ class DDPGAgent():
         self.train()
         print("Networks Initialized!")
 
+
     def select_action(self, obs, env, test_model):
         """Get Action from Actor Network Based on Input Observation"""
         feats = self.feature_extractor(obs)
@@ -200,6 +209,7 @@ class DDPGAgent():
             action, env.action_space.low, env.action_space.high)
 
         return action[0]
+
 
     def train(self):
         """Train Network"""
@@ -246,6 +256,7 @@ class DDPGAgent():
 
         # Soft Update Network Parameters
         self.update_network_params()
+
 
     def learn(self, env, opt):
         """Run Training Sequence"""
@@ -319,6 +330,7 @@ class MemoryBuffer:
         self.terminal_memory = np.zeros(self.mem_size, dtype=bool)
         self.feature_extractor = get_model(opt)
 
+
     def push(self, state, action, reward, next_state, done):
         """Push New Experiences Into Buffer And Increment Counter"""
         index = self.mem_counter % self.mem_size
@@ -332,6 +344,7 @@ class MemoryBuffer:
         self.terminal_memory[index] = done
 
         self.mem_counter += 1
+
 
     def sample_buffer(self, batch_size):
         """Randomly Sample from Memory Buffer According To Batch Size"""
@@ -373,6 +386,7 @@ class Critic(Model):
         self.fc2 = Dense(self.fc2_dims, activation='relu')
         self.q = Dense(1, activation=None)
 
+
     def call(self, state, action):
         """Run Forward Pass on Critic Network"""
         concated = tf.concat([state, action], axis=1)
@@ -411,6 +425,7 @@ class Actor(Model):
         self.fc2 = Dense(self.fc2_dims, activation='relu')
         self.mu = Dense(self.n_actions, activation='tanh')
 
+
     def call(self, state):
         """Run Forward Pass on Actor Network"""
         probability = self.fc1(state)
@@ -423,7 +438,7 @@ class Actor(Model):
 
 
 class OUNoise(object):
-    """Ornstein-Ulhenbeck Process Noise to improve explore-exploit process"""
+    """Ornstein-Ulhenbeck Process Noise to Improve Explore-Exploit Process"""
 
     def __init__(self, action_space, mean=0.0, theta=0.15, max_sigma=0.3, min_sigma=0.3, decay_period=100000):
         # Hyperparameters
@@ -438,8 +453,10 @@ class OUNoise(object):
         self.high = action_space.high
         self.reset()
 
+
     def reset(self):
         self.state = np.ones(self.action_dim) * self.mean
+
 
     def evolve_state(self):
         x = self.state
@@ -447,6 +464,7 @@ class OUNoise(object):
             np.random.randn(self.action_dim)
         self.state = x + dx
         return self.state
+
 
     def get_action(self, action, t=0):
         ou_state = self.evolve_state()
