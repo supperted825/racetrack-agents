@@ -64,7 +64,7 @@ class PPOAgent():
             self.reset_memory()
 
             # Manage Logging Properties
-            time = '{0:%Y-%m-%d_%H:%M:%S}'.format(datetime.datetime.now())
+            time = '{0:%Y-%m-%d_%H-%M-%S}'.format(datetime.datetime.now())
             self.logdir = f"{opt.exp_dir}/log_{time}"
             os.mkdir(self.logdir)
             
