@@ -320,7 +320,7 @@ class RaceTrackEnv(AbstractEnv):
                                               speed=4)
             # Prevent early collisions
             for v in self.road.vehicles:
-                if np.linalg.norm(vehicle.position - v.position) < 15:
+                if np.linalg.norm(vehicle.position - v.position) < 25:
                     break
             else:
                 self.road.vehicles.append(vehicle)
