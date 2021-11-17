@@ -55,9 +55,8 @@ class PPOAgent():
             self.optimizer = Adam(learning_rate=lr_schedule if opt.lr_decay else self.lr)
 
             # Variables to Track Training Progress & Experience Replay Buffer
-            self.total_steps = 0
-            self.best = 0
-            self.num_updates = 0
+            self.total_steps = self.num_updates = 0
+            self.best = self.eval_best = 0
             self.losses = []
             
             # Initialise Replay Memory Buffer
@@ -205,16 +204,13 @@ class PPOAgent():
         min_reward = np.min(ep_rewards)
         max_reward = np.max(ep_rewards)
         
-        # Run Three Evaluation Runs (Deterministic Actions)
-        eval_rewards = []
-        for _ in range(3):
-            obs, rew, done = env.reset(), 0, False
-            while not done:
-                action, _ = self.policy(np.expand_dims(obs, axis=0))
-                obs, reward, done, _ = env.step(action)
-                rew += reward
-            eval_rewards.append(rew)
-        self.eval_reward = np.mean(eval_rewards)
+        # Run One Evaluation Run (Deterministic Actions)
+        obs, rew, done = env.reset(), 0, False
+        while not done:
+            action, _ = self.policy(np.expand_dims(obs, axis=0))
+            obs, reward, done, _ = env.step(action)
+            rew += reward
+        self.eval_reward = rew
             
         # Show Training Progress on Console
         self.callback(avg_reward)
@@ -227,8 +223,13 @@ class PPOAgent():
             self.best = avg_reward
             self.policy.save(f'{opt.exp_dir}/R{avg_reward:.0f}.model')
         
+        # Save Model if Eval Reward is Greater than a Minimum & Better than Before
+        if self.eval_reward >= np.max([opt.min_reward, self.eval_best]) and opt.save_model:
+            self.eval_best = self.eval_reward
+            self.policy.save(f'{opt.exp_dir}/eval_R{self.eval_reward:.0f}.model')
+        
         # Save Model Every 20 PPO Update Iterations
-        if self.total_steps % (10 * self.memory_size) == 0:
+        if self.total_steps % (20 * self.memory_size) == 0:
             self.policy.save(f'{opt.exp_dir}/checkpoint_{self.total_steps}.model')
 
 
@@ -242,12 +243,6 @@ class PPOAgent():
         done = mem["done"][-1]
         last_ep_starts = mem["last_ep_starts"]
         
-        # print("Rewards", rews)
-        # print("Vals", vals)
-        # print("Done", done)
-        # print("Last Ep Starts", last_ep_starts)
-        
-        last_adv = 0
         g = self.GAE_GAMMA
         l = self.GAE_LAMBDA
 
@@ -256,7 +251,7 @@ class PPOAgent():
         rets = np.empty((self.memory_size,))
 
         # Calculate Advantages & Returns
-        last_gae_lam = 0
+        last_adv = 0
 
         for step in reversed(range(self.memory_size)):
             if step == self.memory_size - 1:
@@ -266,8 +261,8 @@ class PPOAgent():
                 next_non_terminal = 1.0 - last_ep_starts[step + 1]
                 next_value = vals[step + 1]
             delta = rews[step] + g * next_value * next_non_terminal - vals[step]
-            last_gae_lam = delta + g * l * next_non_terminal * last_gae_lam
-            advs[step] = last_gae_lam
+            last_adv = delta + g * l * next_non_terminal * last_adv
+            advs[step] = last_adv
 
         rets = advs + vals
 
