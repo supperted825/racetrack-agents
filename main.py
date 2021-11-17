@@ -89,7 +89,8 @@ class opts(object):
         self.parser.add_argument('--ppo_memory_size', default=2048, type=int, help='Size of Replay Buffer for PPO')
         
         # A3C Hyperparameters
-        self.parser.add_argument('--a3c_gamma', default=0.95, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--a3c_gamma', default=0.99, type=float, help='Generalised Advantage Estimate Gamma')
+        self.parser.add_argument('--rmsprop_epsilon', default=1e-5, type=float, help='RMSProp epsilon')
         self.parser.add_argument('--update_global_freq', default=5, type=int, help='Frequency of Updating Master Agent')
         self.parser.add_argument('--num_workers', default=None, type=int, help='Number of Workers')
         
