@@ -63,6 +63,7 @@ class RaceTrackEnv(AbstractEnv):
 
             "all_random": opt.all_random,
             "spawn_vehicles": opt.spawn_vehicles,
+            "random_lane": opt.random_lane,
 
             
             # Simulation Information
@@ -291,7 +292,7 @@ class RaceTrackEnv(AbstractEnv):
         # Initialise the Agent Vehicle
         self.controlled_vehicles = []
         road = self.road
-        ego_lane = np.random.randint(2)
+        ego_lane = np.random.randint(2) if self.config["random_lane"] else 0
 
         ego_vehicle = self.action_type.vehicle_class(
             road, road.network.get_lane(("a", "b", ego_lane)).position(0, 0),
@@ -321,7 +322,7 @@ class RaceTrackEnv(AbstractEnv):
                                               speed=4)
             # Prevent early collisions
             for v in self.road.vehicles:
-                if np.linalg.norm(vehicle.position - v.position) < 25:
+                if np.linalg.norm(vehicle.position - v.position) < 15:
                     break
             else:
                 self.road.vehicles.append(vehicle)
