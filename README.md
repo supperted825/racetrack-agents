@@ -39,7 +39,7 @@ Available agents include Double DQN, Clipped Double DQN, PPO, A3C, DDPG. Special
 
 <i><b>NOTE:</b> A [similar version of racetrack_env.py](https://github.com/eleurent/highway-env/blob/master/highway_env/envs/racetrack_env.py) can be found in the original highway_env repo, and was contributed by us through https://github.com/eleurent/highway-env/issues/231. Our env uses a slightly different reward structure than the original to facilitate training.</i>
 
-<br/>
+<br>
 
 # Load & Run Models
 
@@ -50,16 +50,26 @@ conda create --name <env> --file requirements.txt
 conda activate <env>
 ```
 
-To load and run each available model sequentially with visualisation, use the following commands:
+To load and run each available model sequentially with visualisation, use the following commands.
 
 ```
 python3 main.py --mode test --agent DQN --load_model ./models/DQN1.model --save_video
 python3 main.py --mode test --agent DQN --load_model ./models/DQN2.model --spawn_vehicles 3 --save_video
+
 python3 main.py --mode test --agent PPO --load_model ./models/PPO1.model --save_video
 python3 main.py --mode test --agent PPO --load_model ./models/PPO2.model --spawn_vehicles 3 --save_video
+
 python3 main.py --mode test --agent A3C --load_model ./models/A3C1.model --save_video
+
 python3 main.py --mode test --agent DDPG --load_model ./models/DDPG1.model --save_video
+python3 main.py --mode test --agent DDPG --load_model ./models/DDPG2.model --spawn_videos 3 --save_video
 ```
+
+The above experiments with vehicles spawn one fixed vehicle and two random vehicles. If you want to try more vehicles, please adjust the --spawn_vehicles parameter. For all random vehicles, pass the --all_random flag.
+
+In some cases, the trained agent may fail in the presence of other vehicles. Admittedly, these policies are not entirely robust and can be improved with further training. If this happens, please restart the run :-).
+
+<br>
 
 # Training
 
