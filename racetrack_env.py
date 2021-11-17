@@ -291,10 +291,11 @@ class RaceTrackEnv(AbstractEnv):
         # Initialise the Agent Vehicle
         self.controlled_vehicles = []
         road = self.road
+        ego_lane = np.random.randint(2)
 
         ego_vehicle = self.action_type.vehicle_class(
-            road, road.network.get_lane(("a", "b", np.randint(2))).position(0, 0),
-            heading=road.network.get_lane(("a", "b", 0)).heading_at(0),
+            road, road.network.get_lane(("a", "b", ego_lane)).position(0, 0),
+            heading=road.network.get_lane(("a", "b", ego_lane)).heading_at(0),
             speed=9)
         
         ego_vehicle.MAX_SPEED = 10
