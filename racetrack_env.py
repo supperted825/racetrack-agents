@@ -293,7 +293,7 @@ class RaceTrackEnv(AbstractEnv):
         road = self.road
 
         ego_vehicle = self.action_type.vehicle_class(
-            road, road.network.get_lane(("a", "b", 0)).position(0, 0),
+            road, road.network.get_lane(("a", "b", np.randint(2))).position(0, 0),
             heading=road.network.get_lane(("a", "b", 0)).heading_at(0),
             speed=9)
         
