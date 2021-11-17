@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     # For Recording or Visualisation
     if opt.save_video:
-        env = Monitor(env, f'./videos/{opt.agent}/', force=True)
+        env = Monitor(env, f'./videos/{opt.agent}{opt.load_model[-7]}/', force=True)
 
     if opt.mode == "train":
         
