@@ -62,7 +62,7 @@ class RaceTrackEnv(AbstractEnv):
             },
 
             "all_random": opt.all_random,
-            "spawn_vehicles": opt.spawn_vehicles if not opt.all_random else opt.spawn_vehicles + 1,
+            "spawn_vehicles": opt.spawn_vehicles,
 
             
             # Simulation Information
