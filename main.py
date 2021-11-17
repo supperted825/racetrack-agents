@@ -143,12 +143,12 @@ if __name__ == "__main__":
 
     elif opt.mode == "test":
         
-        model = keras.models.load_model(opt.load_model)
-        total_reward, obs, seq = 0, env.reset(), []
+        total_reward, obs, done, seq = 0, env.reset(), False, []
         
         if opt.agent in ["DQN", "CDQN"]:
+
+            model = keras.models.load_model(opt.load_model)
             
-            done = False
             while not done:
                 action_idx = model.predict(np.array([obs])/255)[0]
                 action_idx = np.argmax(action_idx)
@@ -167,7 +167,6 @@ if __name__ == "__main__":
             else:
                 agent.load_models()
 
-            done = False
             while not done:
                 action = agent.select_action(np.expand_dims(obs/255, axis=0), env, test_model=True)
                 obs, reward, done, _ = env.step(action)
@@ -177,7 +176,8 @@ if __name__ == "__main__":
 
         else:
             
-            done = False            
+            model = keras.models.load_model(opt.load_model)
+                     
             while not done:
                 action = model(np.array([obs]))[0]
                 obs, reward, done, info = env.step(action)
