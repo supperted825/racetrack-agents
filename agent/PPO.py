@@ -161,7 +161,7 @@ class PPOAgent():
         self.episode_counter = 0
         self.last_obs = env.reset()
 
-        printProgressBar(0, self.memory_size, prefix = 'Rollout Collection:', suffix = 'Complete', length = 50)
+        # printProgressBar(0, self.memory_size, prefix = 'Rollout Collection:', suffix = 'Complete', length = 50)
         
         while num_steps != self.memory_size - 1:
 
@@ -190,7 +190,7 @@ class PPOAgent():
                 num_steps += 1
                 ep_reward += reward
                 
-                printProgressBar(num_steps+1, self.memory_size, prefix = 'Rollout Collection:', suffix = 'Complete', length = 50)
+                # printProgressBar(num_steps+1, self.memory_size, prefix = 'Rollout Collection:', suffix = 'Complete', length = 50)
 
             self.last_obs = env.reset()
             ep_rewards.append(ep_reward)
