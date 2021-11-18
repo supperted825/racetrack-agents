@@ -4,7 +4,7 @@ A reinforcement learning project for simultaneous lane-following and obstacle av
 
 We train the agents to perform two types of tasks. In task 1, to simply learn lane following and traverse the track. For Task 2, we introduce three randomly spawned non-agent vehicles around the track that move at a slower speed. The agent must now simultaneously learn to overtake and traverse the track.
 
-Available agents include Double DQN, Clipped Double DQN, PPO, A3C, DDPG. Special thanks to project-mates [@hwchua0209](@hwchua0209) and [@jeremyxychew](@jeremyxychew) for their work on the A3C & DDPG agents respectively.
+Available agents include Double DQN, PPO, A3C, DDPG. Special thanks to project-mates [@hwchua0209](@hwchua0209) and [@jeremyxychew](@jeremyxychew) for their work on the A3C & DDPG agents respectively.
 
 <br>
 
@@ -16,6 +16,10 @@ Available agents include Double DQN, Clipped Double DQN, PPO, A3C, DDPG. Special
 
 
 # Files
+
+We use Python 3.8 with Tensorflow v2.6.0 and HighwayEnv v1.4. Additional core dependencies include Tensorflow Probability v0.14.1 and tqdm v4.62.3.
+
+<br>
 
 * [main.py](main.py) - Main python file for running training & testing sequences. Can be run with various options.
 
