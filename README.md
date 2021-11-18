@@ -50,8 +50,9 @@ We use Python 3.8 with Tensorflow v2.6.0 and HighwayEnv v1.4. Additional core de
 First, please ensure you have the correct requirements installed.
 
 ```
-conda create --name <env> --file requirements.txt
+conda create --name <env> python=3.8
 conda activate <env>
+pip install -r requirements.txt
 ```
 
 To load and run each available model sequentially with visualisation, use the following commands.
