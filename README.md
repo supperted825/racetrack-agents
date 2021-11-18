@@ -9,8 +9,8 @@ Available agents include Double DQN, PPO, A3C, DDPG. Special thanks to project-m
 <br>
 
 <p align="center">
-    <img src="./media/DQN2.gif" width="80%", height="80%"<br/>
-    <em><br>The DQN Agent Performing Laning & Overtaking.</em>
+    <img src="./media/PPO2.gif" width="80%", height="80%"<br/>
+    <em><br>The PPO Agent Performing Laning & Overtaking.</em>
 </p>
 
 
