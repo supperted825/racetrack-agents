@@ -27,15 +27,15 @@ We use Python 3.8 with Tensorflow v2.6.0 and HighwayEnv v1.4. Additional core de
 
 * [agent/models.py](/agent/models.py) - Contains NN architectures that can be imported for various agents.
 
-* [agent/DQN.py](/agent/DQN.py) - DQN Agent & its Variants
+* [agent/DQN.py](/agent/DQN.py) - Deep Q-Network (DQN) Agent & its Variants
 
-* [agent/PPO.py](/agent/PPO.py) - PPO Agent with Clipped Surrogate & GAE
+* [agent/PPO.py](/agent/PPO.py) - Proximal Policy Optimisation (PPO) Agent with Clipped Surrogate & GAE
 
 * [agent/A3C.py](/agent/A3C.py) - Asynchronous Advantage Actor-Critic (A3C) Agent
 
 * [agent/DDPG.py](/agent/DDPG.py) - Deep Deterministic Policy Gradient (DDPG) Agent
 
-* [requirements.txt](requirements.txt) - Conda environment for running the project.
+* [requirements.txt](requirements.txt) - Pip-compatible requirements for running the project.
 
 * [models](/models/) - Trained Agent Models (Keras Model API) that can be loaded for demo.
 
