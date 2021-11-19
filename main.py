@@ -107,7 +107,10 @@ class opts(object):
             opt = self.parser.parse_args()
         else:
             opt = self.parser.parse_args(args)
-            
+        
+        if not os.path.exists("./logs"):
+            os.mkdir("./logs/")
+        
         opt.exp_dir = f"./logs/{opt.exp_id}"
         if not os.path.exists(opt.exp_dir):
             os.mkdir(opt.exp_dir)
