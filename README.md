@@ -1,4 +1,4 @@
-# ME5406 Project 2 - RL Agents for RaceTrackEnv
+# RL Agents for RaceTrackEnv
 
 A reinforcement learning project for simultaneous lane-following and obstacle avoidance while handling interactions with other vehicles. The [highway_env API](https://github.com/eleurent/highway-env) is used for simulation.
 
